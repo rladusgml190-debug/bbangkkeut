@@ -1,0 +1,1146 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#F7F6EB"><meta property="og:title" content="빵끗 · 함께하는 정산"><meta property="og:description" content="모임정산이 도착했어요. 링크를 눌러 체크인해 주세요."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8D%9E%3C/text%3E%3C/svg%3E"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style><script src="vendor/supabase.js"></script><script>window.BBK_SUPA={url:"https://neoisnzhuilcfqrgnewy.supabase.co",key:"sb_publishable_4m1qpPaiR2k_yotXySvWiw_8jH5xh4V"};</script>
+</head><body>
+<title>빵끗 정산</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap">
+<style>
+/* Layout: 한 열 모바일 앱(최대 430px), 데스크톱에서는 가운데 둥근 폰 카드. 총무 화면 + 링크로 들어오는 참여자 체크인 화면. 총무 화면 + 링크로 들어오는 참여자 체크인 화면. 피그마 '빵끗 정산 앱 UI' 01~08·00 화면 그대로: 크림 바탕 + 흰 카드 + 먹색 버튼 + 초록 송금. 라이트 단일 테마. */
+:root{
+  --outer:#E9E8DF; --bg:#F7F6EB; --card:#FFFFFF; --ink:#1B1D1F; --sub:#686C70; --line:#E8EAEB; --soft:#F1F2F3; --soft2:#ECEEEF;
+  --on-ink:#FFFFFF; --ok:#247A66; --ok-soft:#E7F4EE; --warn:#9A4A06; --warn-soft:#FFF2DD; --danger:#C62828;
+  --kakao:#FEE500; --kakao-ink:#191600;
+  --f:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--outer);color:var(--ink);font-family:var(--f);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+.shell{max-width:430px;margin:0 auto;min-height:100vh;min-height:100dvh;background:var(--bg);display:flex;flex-direction:column;position:relative;
+  padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));padding-block:24px 0}
+.shell.wide{padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+.shell.clip{overflow:hidden}
+@media (min-width:520px){
+  body{padding-block:24px}
+  .shell{min-height:calc(100dvh - 48px);border-radius:40px;box-shadow:0 16px 36px rgba(26,26,31,.09);overflow:hidden}
+}
+.view{flex:1;display:flex;flex-direction:column;gap:14px;padding-bottom:28px;min-width:0}
+
+/* type */
+.h1{margin:0;font-size:24px;font-weight:700;letter-spacing:-.02em;line-height:34px;text-align:center;text-wrap:balance}
+.lead{margin:0;font-size:15px;color:var(--sub);text-align:center;line-height:25px}
+.title{margin:0;font-size:24px;font-weight:700;letter-spacing:-.02em;line-height:32px}
+.subt{margin:0;font-size:13px;font-weight:500;color:var(--sub);line-height:19px}
+.label{font-size:13px;font-weight:700;line-height:18px}
+.cap{font-size:12.5px;color:var(--sub);line-height:18px}
+.status{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--sub);white-space:nowrap}
+.status i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.status.local i{background:#C8963E}
+
+/* buttons */
+.btn{border:0;border-radius:18px;padding:16px 18px;font-size:16px;font-weight:700;line-height:22px;background:var(--ink);color:var(--on-ink);width:100%}
+.btn[disabled],.btn.idle{background:var(--soft);color:var(--sub);cursor:default}
+.btn.line{background:var(--card);border:1px solid var(--line);color:var(--ink)}
+.btn.kakao{background:var(--kakao);color:var(--kakao-ink)}
+.btn.pill{border-radius:21px;padding:10px 18px;font-size:13px;background:var(--soft2);color:#34393D}
+.btn.small{width:auto;border-radius:22px;padding:11px 18px;font-size:13px}
+.btn.danger{background:none;border:1px solid var(--line);color:var(--danger);font-size:14px;padding:12px}
+.back{border:0;background:none;padding:0;font-size:15px;font-weight:700;line-height:22px;align-self:flex-start;color:var(--ink)}
+.textlink{border:0;background:none;color:var(--sub);font-size:13px;font-weight:500;padding:4px 8px;align-self:center}
+.textlink.u{text-decoration:underline;text-underline-offset:3px}
+
+/* bread */
+.bread{position:relative;margin:0 auto;flex:none}
+.bread svg{display:block;width:100%;height:auto;overflow:visible}
+.float{transform-box:fill-box;transform-origin:center;animation:float 8s infinite}
+.bob{transform-box:fill-box;transform-origin:center;animation:bob 8s infinite}
+.eye{transform-box:fill-box;transform-origin:center;animation:blink 8s infinite}
+.eye.b2{animation-name:blink2}
+.smile{transform-box:fill-box;transform-origin:center;animation:smile 8s infinite}
+.hop{transform-box:fill-box;transform-origin:center;animation:hop 2s infinite}
+.q{position:absolute;font-size:24px;font-weight:700;color:var(--sub);line-height:32px}
+@keyframes float{0%{transform:translate(0,0) rotate(0);animation-timing-function:ease-in-out}25%{transform:translate(2px,-8px) rotate(-1.5deg);animation-timing-function:ease-in-out}50%{transform:translate(0,0) rotate(0);animation-timing-function:ease-in-out}75%{transform:translate(-2px,-8px) rotate(1.5deg);animation-timing-function:ease-in-out}100%{transform:translate(0,0) rotate(0)}}
+@keyframes bob{0%,50%,100%{transform:translateY(0);animation-timing-function:ease-in-out}25%,75%{transform:translateY(-5px);animation-timing-function:ease-in-out}}
+@keyframes blink{0%,32.5%{transform:scaleY(1)}33.75%{transform:scaleY(.08)}35.25%,75%{transform:scaleY(1)}76.25%{transform:scaleY(.08)}77.75%,100%{transform:scaleY(1)}}
+@keyframes blink2{0%,21.25%{transform:scaleY(1)}22.375%{transform:scaleY(.07)}23.75%,58.125%{transform:scaleY(1)}59.25%{transform:scaleY(.07)}60.75%,63.5%{transform:scaleY(1)}64.625%{transform:scaleY(.07)}66.125%,100%{transform:scaleY(1)}}
+@keyframes smile{0%,50%,100%{transform:scaleX(1);animation-timing-function:ease-in-out}25%,75%{transform:scaleX(1.06);animation-timing-function:ease-in-out}}
+@keyframes hop{
+  0%{transform:translate(0,0) rotate(0) scale(1,1);animation-timing-function:ease-in-out}
+  12.5%{transform:translate(-3px,2px) rotate(-1.4deg) scale(1.012,.988);animation-timing-function:ease-in-out}
+  27.5%{transform:translate(-3px,-7px) rotate(-1.4deg) scale(.994,1.008);animation-timing-function:ease-in-out}
+  50%{transform:translate(0,0) rotate(0) scale(1,1);animation-timing-function:ease-in-out}
+  62.5%{transform:translate(3px,2px) rotate(1.4deg) scale(1.012,.988);animation-timing-function:ease-in-out}
+  77.5%{transform:translate(3px,-7px) rotate(1.4deg) scale(.994,1.008);animation-timing-function:ease-in-out}
+  100%{transform:translate(0,0) rotate(0) scale(1,1)}}
+@keyframes wigL{0%,20%,40%,60%,82%,100%{transform:translateY(0) rotate(0);animation-timing-function:ease-in-out}10%,50%{transform:translateY(-3px) rotate(-1.8deg);animation-timing-function:ease-in-out}30%,70%{transform:translateY(-3px) rotate(1.8deg);animation-timing-function:ease-in-out}}
+@keyframes wigR{0%,20%,40%,60%,82%,100%{transform:translateY(0) rotate(0);animation-timing-function:ease-in-out}10%,50%{transform:translateY(-3px) rotate(1.8deg);animation-timing-function:ease-in-out}30%,70%{transform:translateY(-3px) rotate(-1.8deg);animation-timing-function:ease-in-out}}
+@media (prefers-reduced-motion:reduce){.float,.bob,.eye,.smile,.hop,.rule .ic{animation:none}}
+
+/* 04-1 rules */
+.rulegrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 12px}
+.rule{position:relative;border:0;background:none;padding:0;height:140px;display:flex;flex-direction:column;align-items:center;border-radius:18px;color:var(--ink)}
+.rule .icw{position:relative;margin-top:20px;height:56px;width:64px;display:flex;align-items:center;justify-content:center}
+.rule .ic{display:block;transform-origin:center;animation:wigL 6s infinite}
+.rule .ic.r{animation-name:wigR}
+.rule .ic svg{display:block}
+.rule .lb{margin-top:15px;font-size:12px;font-weight:700;line-height:18px;text-align:center;width:100px}
+.rule .ck{position:absolute;right:-6px;top:-2px;width:18px;height:18px;border-radius:9px;background:var(--ink);color:#fff;font-size:12px;font-weight:700;line-height:18px;text-align:center;opacity:0;transform:scale(.6);transition:opacity .15s,transform .15s}
+.rule[aria-pressed="true"] .ck{opacity:1;transform:scale(1)}
+.rule[aria-pressed="false"] .ic{opacity:.92}
+.rulechips{display:flex;flex-wrap:wrap;gap:6px}
+.rulechips span{font-size:11.5px;font-weight:700;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:4px 10px;white-space:nowrap}
+.who{display:flex;align-items:center;gap:6px;margin-top:-2px;padding-left:2px;font-size:12.5px;color:var(--sub)}
+.who select{border:0;background:var(--soft);border-radius:8px;padding:5px 6px;font-size:12.5px}
+.typebtn.personal{background:#E7F4EE;color:var(--ok);border-color:transparent}
+.typebtn.discount{background:#FFF2DD;color:var(--warn);border-color:transparent}
+
+/* 01 big bread */
+.bigbread{position:absolute;left:50%;bottom:0;width:min(118%,calc((100dvh - 300px) / 1.14));transform:translate(-50%,5.75%);pointer-events:none;z-index:0}
+.bigbread svg{display:block;width:100%;height:auto}
+.onb{flex:1;display:flex;flex-direction:column;align-items:center;padding-bottom:20px;position:relative;z-index:1}
+.onb .grow{flex:1;min-height:16px}
+.toprow{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:22px}
+
+/* inputs */
+.field{display:flex;flex-direction:column;gap:8px;min-width:0;width:100%}
+.in{width:100%;min-width:0;height:54px;border:1.5px solid transparent;background:var(--soft);border-radius:16px;padding:0 18px;font-size:16px;color:var(--ink)}
+.in::placeholder,.fi::placeholder,.sf::placeholder{color:var(--sub)}
+.in:focus,.fi:focus,.sf:focus{outline:none;border-color:var(--ink);background:var(--card)}
+
+/* cards & forms (05~08) */
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.ch{font-size:13px;font-weight:700;line-height:18px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ch.sub{color:var(--sub)}
+.ch button{border:0;background:none;padding:0;font-size:12.5px;font-weight:500;color:var(--sub);text-decoration:underline;text-underline-offset:3px}
+.row2{display:flex;gap:8px}
+.row2.g10{gap:10px}
+.row2>*{flex:1 1 0;min-width:0}
+label.f,.fl{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--sub);line-height:18px;min-width:0}
+.fl.g6{gap:6px}
+.fi{width:100%;min-width:0;height:44px;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:0 12px;font-size:15px;color:var(--ink)}
+.sf{width:100%;min-width:0;height:44px;border:1.5px solid transparent;background:var(--soft);border-radius:12px;padding:0 18px;font-size:16px;color:var(--ink);display:flex;align-items:center}
+.sf.ro{color:var(--ink);font-weight:500;height:auto;min-height:44px;padding-block:10px;line-height:22px;overflow-wrap:anywhere}
+textarea.sf{height:auto;min-height:144px;padding:14px 16px;font-size:14px;line-height:1.6;resize:vertical;display:block}
+.colhead{display:flex;gap:6px;font-size:12.5px;color:var(--sub);line-height:18px}
+.colhead.between{justify-content:space-between}
+.item{display:flex;gap:6px;align-items:center}
+.item .fi{height:40px;padding:0 10px;font-size:14px;font-weight:500}
+.item .nm{flex:1 1 0;min-width:0}
+.item .amt{flex:0 0 100px;text-align:right}
+.typebtn{flex:none;border:1px solid var(--line);background:var(--soft);border-radius:8px;padding:8px 9px;font-size:12.5px;font-weight:700;line-height:18px;white-space:nowrap;min-width:44px}
+.typebtn.drink{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.xbtn{flex:none;border:0;background:none;color:var(--sub);font-size:18px;line-height:22px;padding:2px 4px}
+.addrow{display:flex;gap:8px;align-items:center}
+.addrow input{flex:1;min-width:0;height:46px;border:1.5px solid var(--line);background:var(--card);border-radius:20px;padding:0 18px;font-size:14px}
+.addrow input:focus{outline:none;border-color:var(--ink)}
+.people{display:flex;flex-direction:column;gap:8px}
+.person{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:14px;padding:8px 10px}
+.person .pn{flex:1;min-width:0;border:0;background:none;font-size:15px;font-weight:700;padding:2px 0}
+.person .pn:focus{outline:none;border-bottom:1px solid var(--ink)}
+.person select{border:0;background:var(--soft);border-radius:10px;padding:7px 6px;font-size:13px;max-width:128px}
+.badge{font-size:11px;font-weight:700;line-height:15px;border-radius:6px;padding:3px 7px;background:var(--soft);color:var(--sub);white-space:nowrap}
+.badge.ink{background:var(--ink);color:var(--on-ink)}
+.badge.ok{background:var(--ok-soft);color:var(--ok)}
+.tabs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--soft);border-radius:16px;padding:4px;gap:4px}
+.tabs.r18{border-radius:18px}
+.tabs button{border:0;background:none;border-radius:9px;padding:9px 4px;font-size:14px;font-weight:700;color:var(--sub);line-height:22px;white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.softbox{background:var(--soft);border-radius:12px;padding:4px 14px}
+.prow{display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid var(--line);min-width:0}
+.prow:last-child{border-bottom:0}
+.prow .pname{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.prow .pname b{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:15px}
+.prow .amt{font-weight:700;font-size:15px;white-space:nowrap}
+.rowbtn{all:unset;display:flex;align-items:center;gap:8px;width:100%;cursor:pointer}
+.chk{flex:none;width:28px;height:28px;border-radius:9px;border:1.5px solid var(--line);background:var(--card);display:grid;place-items:center}
+.chk[aria-pressed="true"]{background:var(--ok);border-color:var(--ok)}
+.chk svg{opacity:0}.chk[aria-pressed="true"] svg{opacity:1}
+.choice{display:flex;gap:8px}
+.choice button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:16px;padding:16px 10px;font-size:16px;font-weight:700;line-height:22px}
+.choice button[aria-pressed="true"]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.warn{background:var(--warn-soft);color:var(--warn);border-radius:14px;padding:10px 12px;font-size:13px}
+.empty-soft{background:var(--soft);border-radius:12px;padding:20px 14px;text-align:center;font-size:13px;color:var(--sub)}
+
+/* 00 home */
+.hhead{display:flex;align-items:center;justify-content:space-between}
+.icons{display:flex;gap:18px}
+.icon{border:0;background:none;padding:0;width:24px;height:24px;display:grid;place-items:center}
+.quick{display:flex;justify-content:space-between;padding-block:6px}
+.qbtn{border:0;background:none;width:100px;display:flex;flex-direction:column;align-items:center;gap:10px;font-size:13px;font-weight:500;padding:0;color:var(--ink)}
+.qbtn i{width:52px;height:52px;border-radius:26px;display:grid;place-items:center;background:var(--soft)}
+.qbtn.new i{background:var(--ink)} .qbtn.pay i{background:var(--ok-soft)}
+.sechead{display:flex;justify-content:space-between;align-items:center}
+.sechead button{border:0;background:none;padding:0;font-size:12.5px;color:var(--sub)}
+.glist{display:flex;flex-direction:column;gap:10px}
+.gcard{text-align:left;width:100%;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.gcard .t{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:16px;font-weight:700;line-height:22px}
+.bar{height:6px;border-radius:6px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ink);border-radius:6px;transition:width .3s ease}
+.homeempty{background:var(--soft);border-radius:18px;min-height:120px;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:20px;text-align:center}
+.nav{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--line);display:flex;justify-content:space-between;
+  margin-left:calc(-1 * max(24px,env(safe-area-inset-left,0px)));margin-right:calc(-1 * max(24px,env(safe-area-inset-right,0px)));
+  padding:12px max(24px,env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) max(24px,env(safe-area-inset-left,0px));z-index:3}
+.nav button{border:0;background:none;width:100px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12.5px;color:var(--sub);padding:0}
+.nav button[aria-current="page"]{color:var(--ink);font-weight:700}
+
+/* sheet & toast */
+.scrim{position:fixed;inset:0;background:rgba(10,12,16,.42);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet{background:var(--card);width:100%;max-width:430px;border-radius:24px 24px 0 0;padding:22px max(22px,env(safe-area-inset-left,0px)) calc(22px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;max-height:88vh;overflow:auto}
+.sheet h3{margin:0;font-size:18px}
+.msg{white-space:pre-wrap;background:var(--soft);border-radius:14px;padding:12px;font-size:13px;line-height:1.6;max-height:260px;overflow:auto;overflow-wrap:anywhere}
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--on-ink);font-size:13.5px;padding:11px 16px;border-radius:14px;z-index:30;max-width:calc(100% - 32px);width:max-content;text-align:center}
+.loading{text-align:center;color:var(--sub);padding:80px 0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* v4 추가: 규칙 카드, 영수증 입력, 체크인 질문, 07 현황 */
+.h1.left,.lead.left{text-align:left}
+.h15{font-size:15px;line-height:22px}
+.err{color:var(--danger)}
+.rcards{display:flex;flex-direction:column;gap:12px}
+.rcard{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 16px 16px 12px;min-height:85px}
+.rcard .ri,.qcard .ri{flex:none;width:52px;height:52px;display:grid;place-items:center}
+.rcard .ri svg,.qcard .ri svg{max-width:44px;max-height:44px;width:auto;height:auto}
+.rcard .ic,.qcard .ic{display:block;transform-origin:center;animation:wigL 6s infinite}
+.rcard .ic.r{animation-name:wigR}
+.rcard .rt{display:flex;flex-direction:column;gap:6px;min-width:0}
+.rcard b{font-size:15px;line-height:22px}
+.rcard .cap{font-size:11.5px;line-height:17px}
+.tile{flex:1;background:var(--soft);border-radius:16px;height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;text-align:center}
+.tile b{font-size:13px;line-height:18px;margin-top:4px}
+.tile:focus-within{outline:2px solid var(--ink)}
+.fl2{font-size:13px;font-weight:700;color:var(--sub);line-height:18px}
+.in2{width:100%;min-width:0;height:48px;border:1.5px solid var(--line);background:var(--card);border-radius:14px;padding:0 16px;font-size:16px;color:var(--ink)}
+.in2:focus{outline:none;border-color:var(--ink)}
+.seg2{display:flex;gap:8px}
+.seg2 button{flex:1;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--card);font-size:15px;font-weight:700;padding:0 4px;white-space:nowrap}
+.seg2 button[aria-checked="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn.softb{background:var(--soft2);color:#34393D;padding:7px;font-size:16px;border-radius:14px}
+.ilist{background:var(--card);border-radius:18px;padding:4px 14px;min-height:104px;display:flex;flex-direction:column;justify-content:center}
+.empty-in{text-align:center;font-size:12px;color:var(--sub);line-height:19px;padding:18px 0}
+.irow{display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid var(--line)}
+.irow:last-child{border-bottom:0}
+.irow .iname{flex:1;min-width:0;font-weight:500;overflow-wrap:anywhere}
+.irow .iamt{font-weight:700}
+.badge.drink{background:var(--ink);color:#fff}.badge.personal{background:var(--ok-soft);color:var(--ok)}.badge.discount{background:var(--warn-soft);color:var(--warn)}
+.icon44{border:0;background:none;width:44px;height:44px;margin:-10px -10px -10px 0;display:grid;place-items:center;position:relative;border-radius:22px}
+.icon44 .dot{position:absolute;top:4px;right:2px;min-width:16px;height:16px;border-radius:8px;background:#E5484D;color:#fff;font-size:10px;font-style:normal;font-weight:700;line-height:16px;padding:0 4px}
+.qcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.qhead{display:flex;align-items:center;gap:12px}
+.qhead b{font-size:14px;line-height:20px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:9px 16px;font-size:14px;font-weight:700}
+.chip[aria-pressed="true"],.chip[aria-checked="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.mhead{display:flex;flex-direction:column;gap:6px;margin-top:-4px}
+.linkish{border:0;background:none;padding:0;text-align:left;color:var(--sub);font-family:inherit}
+.btn.small2{width:auto;flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 12px;font-size:13px;border-radius:14px}
+.estcard{width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.estcard .el{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--sub)}
+.estcard .ea{align-self:flex-end;font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:36px}
+.estcard[aria-expanded="true"] .el svg{transform:rotate(180deg)}
+.why{margin:0;padding:12px 14px 12px 30px;background:var(--card);border-radius:14px;font-size:13px;line-height:1.7;color:var(--ink)}
+.plist{display:flex;flex-direction:column;gap:12px}
+.pcard{width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:16px;min-height:85px;padding:12px 14px;display:flex;align-items:center;gap:12px}
+.sicon{flex:none;width:28px;display:grid;place-items:center}
+.pc{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;padding-left:8px}
+.pn{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.pn b{font-size:13px;color:var(--sub);line-height:18px}
+.pn span{font-size:11px;color:var(--sub)}
+.pa{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:36px}
+.pch{flex:none;display:grid;place-items:center}
+.legend{display:flex;gap:14px;flex-wrap:wrap}.legend span{display:flex;align-items:center;gap:4px}.legend svg{width:14px;height:14px}
+.acct{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.acct b{flex:1;min-width:0;overflow-wrap:anywhere;font-size:14px}
+.acct .btn{flex:none}
+.linkbox{display:flex;align-items:center;gap:8px;background:var(--soft);border-radius:12px;padding:12px;font-size:12.5px;overflow-wrap:anywhere}
+.linkbox span{min-width:0}
+.sf.ta{height:auto;min-height:110px;padding:12px 14px;font-size:14px;line-height:1.6;resize:vertical;display:block}
+@media (prefers-reduced-motion:reduce){.rcard .ic,.qcard .ic{animation:none}}
+
+.payinfo{display:flex;flex-direction:column;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.pi-h{font-weight:700;font-size:15px}
+.pi-row{display:flex;align-items:center;gap:10px;min-height:36px}
+.pi-row .cap{flex:none;width:64px}
+.pi-row b{flex:1;min-width:0;overflow-wrap:anywhere;font-size:14px}
+.pi-row .btn{flex:none}
+
+.igroup{display:flex;flex-direction:column;gap:6px}
+.ighead{display:flex;align-items:center;gap:8px;padding:0 4px}
+.ighead b{margin-left:auto;font-size:14px}
+</style>
+
+<div class="shell" id="shell"><div class="loading">불러오는 중…</div></div>
+
+<script>
+(function(){
+const SVG={
+ big:`<svg viewBox="-35 0 460 556.279" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g class="hop">
+<path d="M1.3721 556.279C-3.97673 481.395 -11.4651 389.395 -11.4651 300.605C-11.4651 237.488 -22.1628 201.116 -22.1628 156.186C-22.1628 83.4419 25.9768 31.0233 92.3023 31.0233C135.093 31.0233 169.326 47.0698 195 72.7442C220.674 47.0698 254.907 31.0233 297.698 31.0233C364.023 31.0233 412.163 83.4419 412.163 156.186C412.163 201.116 401.465 237.488 401.465 300.605C401.465 389.395 393.977 481.395 388.628 556.279H1.3721Z" fill="#C88B47"/>
+<path d="M9.93027 556.279C4.58143 479.256 -2.90694 387.256 -2.90694 300.605C-2.90694 236.419 -12.5349 198.977 -12.5349 156.186C-12.5349 89.8605 31.3256 40.6512 92.3024 40.6512C136.163 40.6512 170.395 59.907 195 85.5814C219.605 59.907 253.837 40.6512 297.698 40.6512C358.674 40.6512 402.535 89.8605 402.535 156.186C402.535 198.977 392.907 236.419 392.907 300.605C392.907 387.256 385.419 479.256 380.07 556.279H9.93027Z" fill="#E4AD65"/>
+<path d="M22.7674 556.279C17.4186 478.186 11 390.465 11 302.744C11 238.558 1.37207 200.047 1.37207 158.326C1.37207 100.558 38.8139 56.6977 93.3721 56.6977C132.953 56.6977 162.907 73.8139 185.372 97.3488C190.721 103.767 199.279 103.767 204.628 97.3488C227.093 73.8139 257.046 56.6977 296.628 56.6977C351.186 56.6977 388.628 100.558 388.628 158.326C388.628 200.047 379 238.558 379 302.744C379 390.465 372.581 478.186 367.233 556.279H22.7674Z" fill="#F3CF91"/>
+<g class="eye b2"><path d="M120.116 363.721C137.25 363.721 151.14 344.563 151.14 320.93C151.14 297.298 137.25 278.14 120.116 278.14C102.983 278.14 89.093 297.298 89.093 320.93C89.093 344.563 102.983 363.721 120.116 363.721Z" fill="#302B29"/>
+<path d="M128.674 293.116C130.814 304.884 134.023 309.163 140.442 311.302C134.023 313.442 130.814 318.791 128.674 329.488C126.535 318.791 123.326 313.442 116.907 311.302C123.326 309.163 126.535 304.884 128.674 293.116Z" fill="#FFF8E8"/>
+<path d="M108.349 343.395C110.712 343.395 112.628 341.001 112.628 338.047C112.628 335.092 110.712 332.698 108.349 332.698C105.986 332.698 104.07 335.092 104.07 338.047C104.07 341.001 105.986 343.395 108.349 343.395Z" fill="#FFF8E8"/></g>
+<g class="eye b2"><path d="M269.884 363.721C287.017 363.721 300.907 344.563 300.907 320.93C300.907 297.298 287.017 278.14 269.884 278.14C252.75 278.14 238.86 297.298 238.86 320.93C238.86 344.563 252.75 363.721 269.884 363.721Z" fill="#302B29"/>
+<path d="M278.442 293.116C280.581 304.884 283.791 309.163 290.209 311.302C283.791 313.442 280.581 318.791 278.442 329.488C276.302 318.791 273.093 313.442 266.674 311.302C273.093 309.163 276.302 304.884 278.442 293.116Z" fill="#FFF8E8"/>
+<path d="M258.116 343.395C260.48 343.395 262.395 341.001 262.395 338.047C262.395 335.092 260.48 332.698 258.116 332.698C255.753 332.698 253.837 335.092 253.837 338.047C253.837 341.001 255.753 343.395 258.116 343.395Z" fill="#FFF8E8"/></g>
+<g class="smile"><path d="M176.814 378.698C181.093 394.744 208.907 394.744 213.186 378.698" stroke="#302B29" stroke-width="8.55814" stroke-linecap="round"/></g>
+<path d="M70.907 387.256C84.4957 387.256 95.5116 381.029 95.5116 373.349C95.5116 365.668 84.4957 359.442 70.907 359.442C57.3182 359.442 46.3023 365.668 46.3023 373.349C46.3023 381.029 57.3182 387.256 70.907 387.256Z" fill="#EAB080"/>
+<path d="M319.093 387.256C332.682 387.256 343.698 381.029 343.698 373.349C343.698 365.668 332.682 359.442 319.093 359.442C305.504 359.442 294.488 365.668 294.488 373.349C294.488 381.029 305.504 387.256 319.093 387.256Z" fill="#EAB080"/>
+</g></svg>`,
+ happy:`<svg width="280" height="280" viewBox="0 0 280 280" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<path d="M137 18C168 19 188 6 208 19C229 33 230 57 246 80C263 104 275 124 266 153C261 173 248 182 241 207C233 237 213 252 182 256C155 260 138 273 108 266C79 260 63 244 53 222C43 199 23 192 15 168C3.99999 139 13 114 29 93C43 75 44 53 65 35C85 17 111 16 137 18Z" fill="#FAE7D4"/>
+<g class="float">
+<path d="M62.7203 124.353C54.1817 116.93 49.9926 107.199 49.1556 95.2279C47.3419 69.2913 67.3595 47.3414 93.2962 45.5278C109.257 44.4117 123.537 47.9241 134.071 55.207C143.488 46.529 157.14 41.0633 173.101 39.9472C199.038 38.1336 221.916 57.0839 223.729 83.0205C224.566 94.9913 221.772 105.211 214.35 113.75L220.977 208.518C222.023 223.482 214.137 232.554 199.672 233.565L93.9304 240.96C79.4657 241.971 70.3935 234.085 69.3471 219.121L62.7203 124.353Z" fill="#C88B47"/>
+<path d="M72.3471 118.667C63.8783 112.242 59.8288 104.506 59.1312 94.5304C57.7012 74.0803 73.0449 56.9683 93.9938 55.5034C107.96 54.5268 120.244 58.1788 128.643 63.6061C132.843 66.3198 136.833 66.0407 140.614 62.769C148.176 56.2256 159.833 50.8995 173.799 49.9229C194.748 48.458 212.324 63.268 213.754 83.7181C214.451 93.6937 211.518 101.918 204.026 109.459L210.931 208.218C211.629 218.194 207.953 222.962 197.977 223.66L94.2304 230.914C84.2547 231.612 79.9506 227.402 79.253 217.426L72.3471 118.667Z" fill="#F3CF91"/>
+<g class="eye"><path d="M111.015 155.56C114.596 155.309 117.233 151.31 116.906 146.627C116.579 141.944 113.41 138.351 109.829 138.601C106.248 138.852 103.61 142.851 103.938 147.534C104.265 152.217 107.434 155.81 111.015 155.56Z" fill="#34312F"/>
+<path d="M108.392 146.721C109.494 146.644 110.309 145.465 110.213 144.088C110.116 142.711 109.145 141.656 108.043 141.734C106.941 141.811 106.126 142.99 106.222 144.367C106.319 145.744 107.29 146.798 108.392 146.721Z" fill="#FFF4DF"/></g>
+<g class="eye"><path d="M170.869 151.374C174.45 151.124 177.087 147.125 176.76 142.442C176.432 137.759 173.264 134.165 169.683 134.416C166.102 134.666 163.464 138.666 163.792 143.349C164.119 148.032 167.288 151.625 170.869 151.374Z" fill="#34312F"/>
+<path d="M168.246 142.536C169.348 142.459 170.163 141.28 170.066 139.903C169.97 138.525 168.999 137.471 167.897 137.548C166.795 137.625 165.98 138.804 166.076 140.182C166.172 141.559 167.144 142.613 168.246 142.536Z" fill="#FFF4DF"/></g>
+<path d="M125.853 167.053C136.177 171.343 148.148 170.506 157.775 164.82C159.7 163.683 160.837 165.609 160.049 168.671C157.963 181.849 152.466 189.25 143.488 189.878C134.51 190.506 128.036 183.942 124.137 171.182C122.93 168.26 123.788 166.195 125.853 167.053Z" fill="#43332C"/>
+<path d="M133.094 184.59C134.81 180.461 138.73 179.184 142.721 178.905C146.711 178.626 150.771 179.344 153.045 183.195C150.331 187.395 147.478 189.599 143.488 189.878C139.498 190.157 136.365 188.371 133.094 184.59Z" fill="#EBA383"/>
+<path d="M97.2023 173.066C103.263 172.642 107.988 169.619 107.757 166.313C107.526 163.008 102.426 160.671 96.3652 161.095C90.3049 161.519 85.5794 164.542 85.8106 167.848C86.0417 171.154 91.142 173.49 97.2023 173.066Z" fill="#EBB080"/>
+<path d="M186.983 166.788C193.043 166.364 197.769 163.341 197.538 160.035C197.307 156.73 192.206 154.393 186.146 154.817C180.086 155.241 175.36 158.264 175.591 161.57C175.822 164.875 180.923 167.212 186.983 166.788Z" fill="#EBB080"/>
+</g></svg>`,
+ curious:`<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<path d="M88.0714 11.5714C108 12.2143 120.857 3.85713 133.714 12.2143C147.214 21.2143 147.857 36.6428 158.143 51.4286C169.071 66.8571 176.786 79.7143 171 98.3571C167.786 111.214 159.429 117 154.929 133.071C149.786 152.357 136.929 162 117 164.571C99.6429 167.143 88.7143 175.5 69.4286 171C50.7857 167.143 40.5 156.857 34.0714 142.714C27.6429 127.929 14.7857 123.429 9.64286 108C2.57143 89.3571 8.35714 73.2857 18.6429 59.7857C27.6429 48.2143 28.2857 34.0714 41.7857 22.5C54.6429 10.9286 71.3571 10.2857 88.0714 11.5714Z" fill="#FAE7D4"/>
+<g class="float">
+<path d="M40.3202 79.941C34.8311 75.1694 32.1381 68.9135 31.6 61.218C30.4341 44.5444 43.3025 30.4338 59.9761 29.2679C70.2368 28.5504 79.4166 30.8084 86.1883 35.4903C92.2425 29.9115 101.019 26.3979 111.279 25.6804C127.953 24.5145 142.66 36.6968 143.826 53.3704C144.364 61.0659 142.568 67.6357 137.796 73.1248L142.057 134.047C142.729 143.667 137.659 149.499 128.361 150.149L60.3838 154.903C51.0851 155.553 45.2529 150.483 44.5803 140.864L40.3202 79.941Z" fill="#C88B47"/>
+<path d="M46.5089 76.2861C41.0646 72.1558 38.4614 67.1825 38.0129 60.7696C37.0936 47.6231 46.9574 36.6225 60.4246 35.6808C69.4026 35.053 77.2999 37.4007 82.6993 40.8897C85.399 42.6342 87.9642 42.4548 90.3948 40.3516C95.2561 36.1451 102.75 32.7211 111.728 32.0933C125.195 31.1516 136.494 40.6724 137.413 53.8188C137.861 60.2317 135.976 65.519 131.159 70.3668L135.599 133.855C136.047 140.268 133.684 143.333 127.271 143.781L60.5767 148.445C54.1638 148.893 51.3968 146.187 50.9484 139.774L46.5089 76.2861Z" fill="#F3CF91"/>
+<g class="eye"><path d="M71.3667 100.003C73.6688 99.8418 75.3644 97.2708 75.1539 94.2603C74.9434 91.2499 72.9065 88.9399 70.6043 89.1009C68.3022 89.2618 66.6066 91.8328 66.8171 94.8433C67.0276 97.8538 69.0645 100.164 71.3667 100.003Z" fill="#34312F"/>
+<path d="M69.6805 94.3209C70.3888 94.2713 70.9129 93.5134 70.8509 92.628C70.789 91.7425 70.1646 91.0649 69.4563 91.1144C68.7479 91.1639 68.2239 91.9219 68.2858 92.8073C68.3477 93.6928 68.9721 94.3704 69.6805 94.3209Z" fill="#FFF4DF"/></g>
+<g class="eye"><path d="M109.844 97.3121C112.146 97.1511 113.842 94.5802 113.631 91.5697C113.421 88.5592 111.384 86.2492 109.082 86.4102C106.78 86.5712 105.084 89.1421 105.295 92.1526C105.505 95.1631 107.542 97.4731 109.844 97.3121Z" fill="#34312F"/>
+<path d="M108.158 91.6302C108.866 91.5807 109.39 90.8227 109.328 89.9373C109.267 89.0518 108.642 88.3742 107.934 88.4237C107.225 88.4733 106.701 89.2312 106.763 90.1167C106.825 91.0021 107.45 91.6797 108.158 91.6302Z" fill="#FFF4DF"/></g>
+<path d="M97.4339 115.507C97.7063 119.403 95.3427 122.742 92.1555 122.965C88.9683 123.188 86.1631 120.21 85.8906 116.314C85.6182 112.418 87.9818 109.079 91.169 108.857C94.3562 108.634 97.1614 111.611 97.4339 115.507Z" fill="#43332C"/>
+<path d="M62.4872 111.257C66.3831 110.984 69.4209 109.041 69.2723 106.916C69.1237 104.791 65.845 103.289 61.9491 103.561C58.0531 103.834 55.0153 105.777 55.1639 107.902C55.3125 110.027 58.5913 111.529 62.4872 111.257Z" fill="#EBB080"/>
+<path d="M120.203 107.221C124.099 106.948 127.137 105.005 126.989 102.88C126.84 100.755 123.561 99.2528 119.665 99.5253C115.769 99.7977 112.732 101.741 112.88 103.866C113.029 105.991 116.307 107.493 120.203 107.221Z" fill="#EBB080"/>
+<path d="M65.7931 80.778C68.7931 78.2066 72.0073 77.778 75.4359 79.4923" stroke="#1B1D1F" stroke-width="1.67143" stroke-linecap="round"/>
+<path d="M104.271 79.9976C107.271 79.1405 110.485 79.7833 113.913 81.9262" stroke="#1B1D1F" stroke-width="1.67143" stroke-linecap="round"/>
+</g></svg>`,
+ welcome:`<svg width="280" height="280" viewBox="0 0 280 280" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<path d="M140 13C180 9 215 25 239 53C261 79 273 110 269 146C266 178 272 207 246 232C221 257 185 270 147 267C110 265 83 271 53 248C24 227 13 198 11 164C8.00001 130 11 96 30 66C51 32 94 15 140 13Z" fill="#FAE7D4"/>
+<path d="M56.48 80.0279C58.4332 52.0961 78.9669 37.9941 105.901 39.8775C123.857 41.1331 135.514 46.4592 146.069 53.2119C157.461 47.9939 169.745 44.3419 187.701 45.5975C214.636 47.481 233.007 64.3034 231.054 92.2352C229.938 108.196 223.823 116.791 220.841 123.599L213.761 224.852C212.924 236.823 206.52 242.39 194.549 241.553L71.8486 232.972C59.8778 232.135 54.3109 225.731 55.148 213.761L62.2283 112.508C60.2227 105.351 55.3639 95.9889 56.48 80.0279Z" fill="#C88B47"/>
+<path d="M65.4581 80.6557C66.9927 58.7093 83.3269 47.3209 105.273 48.8556C122.232 50.0414 133.889 55.3675 145.441 62.19C157.83 57.0417 170.115 53.3897 187.074 54.5756C209.02 56.1102 223.61 69.661 222.076 91.6074C221.099 105.573 214.985 114.168 212.002 120.976L204.783 224.224C204.364 230.21 201.162 232.993 195.177 232.574L72.4764 223.994C66.491 223.576 63.7076 220.374 64.1261 214.389L71.3459 111.141C69.3403 103.983 64.4815 94.6216 65.4581 80.6557Z" fill="#F3CF91"/>
+<path d="M110.094 151.943C113.675 152.193 116.859 148.377 117.206 143.418C117.553 138.46 114.931 134.237 111.35 133.987C107.769 133.736 104.584 137.553 104.238 142.511C103.891 147.47 106.513 151.693 110.094 151.943Z" fill="#403630"/>
+<path d="M109.061 142.348C110.163 142.425 111.134 141.37 111.23 139.993C111.327 138.616 110.511 137.437 109.41 137.36C108.308 137.283 107.336 138.337 107.24 139.714C107.144 141.091 107.959 142.27 109.061 142.348Z" fill="#FFF5DE"/>
+<path d="M167.953 155.989C171.534 156.239 174.718 152.423 175.065 147.464C175.411 142.506 172.79 138.283 169.208 138.033C165.627 137.782 162.443 141.599 162.096 146.557C161.75 151.516 164.372 155.738 167.953 155.989Z" fill="#403630"/>
+<path d="M166.92 146.393C168.021 146.47 168.993 145.416 169.089 144.039C169.185 142.662 168.37 141.483 167.268 141.406C166.167 141.329 165.195 142.383 165.099 143.76C165.003 145.137 165.818 146.316 166.92 146.393Z" fill="#FFF5DE"/>
+<path d="M125.288 164.032C133.794 166.632 142.439 167.237 151.224 165.846C153.22 165.985 153.01 168.978 151.803 171.901C149.181 180.74 143.844 185.379 136.861 184.89C129.878 184.402 125.239 179.065 123.872 169.948C123.083 166.885 123.293 163.893 125.288 164.032Z" fill="#403630"/>
+<path d="M128.371 177.28C130.645 173.429 134.705 172.71 137.698 172.92C141.688 173.199 145.539 175.473 146.327 178.535C143.481 181.009 140.395 182.13 137.07 181.898C133.745 181.665 130.845 180.126 128.371 177.28Z" fill="#EFA578"/>
+<path d="M91.8101 169.711C98.9723 170.212 105.028 167.045 105.336 162.637C105.645 158.23 100.088 154.251 92.9262 153.75C85.764 153.249 79.708 156.416 79.3998 160.823C79.0916 165.231 84.6479 169.21 91.8101 169.711Z" fill="#EFAE82"/>
+<path d="M183.586 176.128C190.748 176.629 196.804 173.462 197.112 169.055C197.421 164.647 191.864 160.668 184.702 160.167C177.54 159.667 171.484 162.834 171.176 167.241C170.868 171.649 176.424 175.628 183.586 176.128Z" fill="#EFAE82"/>
+</svg>`,
+ home:`<svg width="220" height="200" viewBox="0 0 220 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<path d="M108 8C139 6 164 16 183 37C201 57 212 81 209 108C207 133 196 163 173 179C152 195 128 190 104 193C78 195 49 185 31 167C12 147 9.00002 120 11 94C12 69 20 43 41 27C61 11 84 11 108 8Z" fill="#FAE7D4"/>
+<g class="bob">
+<path d="M51.311 64.8204C47.9485 55.5633 51.9178 41.8066 61.4539 34.4539C77.394 21.5344 101.126 26.2012 114.185 40.1462C128.06 28.0847 151.144 27.6939 165.27 40.711C175.616 50.4564 178.699 63.7038 172.944 74.3282L166.945 160.119C166.247 170.094 160.911 174.733 150.935 174.036L59.1593 167.618C49.1836 166.921 44.5446 161.584 45.2422 151.608L51.311 64.8204Z" fill="#F3CF91" stroke="#C88B47" stroke-width="7" stroke-linejoin="round"/>
+<path d="M86.5676 105.379C89.3223 105.571 91.7741 102.601 92.0437 98.7444C92.3134 94.8878 90.2989 91.6053 87.5442 91.4126C84.7895 91.22 82.3378 94.1902 82.0681 98.0468C81.7984 101.903 83.8129 105.186 86.5676 105.379Z" fill="#34302C"/>
+<path d="M132.456 108.587C135.21 108.78 137.662 105.81 137.932 101.953C138.201 98.0966 136.187 94.8141 133.432 94.6214C130.677 94.4288 128.226 97.399 127.956 101.256C127.686 105.112 129.701 108.395 132.456 108.587Z" fill="#34302C"/>
+<path d="M85.5944 97.7922C86.4759 97.8538 87.253 97.0105 87.33 95.9087C87.4071 94.8068 86.7549 93.8636 85.8734 93.8019C84.9919 93.7403 84.2149 94.5836 84.1378 95.6854C84.0608 96.7873 84.7129 97.7305 85.5944 97.7922Z" fill="#FFF6E5"/>
+<path d="M131.482 101.001C132.364 101.063 133.141 100.219 133.218 99.1175C133.295 98.0156 132.643 97.0724 131.761 97.0107C130.88 96.9491 130.103 97.7924 130.026 98.8942C129.949 99.9961 130.601 100.939 131.482 101.001Z" fill="#FFF6E5"/>
+<path d="M97.9106 115.194C105.087 117.7 112.402 118.212 119.857 116.728C121.922 115.87 122.78 117.935 121.573 120.858C118.95 129.697 113.614 134.336 107.628 133.917C101.643 133.499 97.0037 128.162 95.6364 119.044C94.8481 115.982 95.9852 114.057 97.9106 115.194Z" fill="#34302C"/>
+<path d="M99.9963 128.371C105.642 124.088 110.963 124.46 115.957 129.487C113.73 132.673 110.953 134.15 107.628 133.917C104.303 133.685 101.759 131.836 99.9963 128.371Z" fill="#EEA17F"/>
+<path d="M71.6251 118.368C74.9307 118.599 77.7979 116.107 78.029 112.801C78.2602 109.495 75.7678 106.628 72.4622 106.397C69.1566 106.166 66.2894 108.658 66.0583 111.964C65.8271 115.27 68.3195 118.137 71.6251 118.368Z" fill="#EDAA7A"/>
+<path d="M145.445 123.53C148.751 123.761 151.618 121.269 151.849 117.963C152.08 114.657 149.588 111.79 146.282 111.559C142.976 111.328 140.109 113.82 139.878 117.126C139.647 120.432 142.139 123.299 145.445 123.53Z" fill="#EDAA7A"/>
+</g></svg>`,
+ bell:`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 21H14M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 15 3 17H21C21 15 18 15 18 8Z" stroke="#1B1D1F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ user:`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 21V19C20 17.1435 19.2625 15.363 17.9497 14.0503C16.637 12.7375 14.8565 12 13 12C11.1435 12 9.36301 12.7375 8.05025 14.0503C6.7375 15.363 6 17.1435 6 19V21M16 7C16 8.06087 15.5786 9.07828 14.8284 9.82843C14.0783 10.5786 13.0609 11 12 11C10.9391 11 9.92172 10.5786 9.17157 9.82843C8.42143 9.07828 8 8.06087 8 7C8 5.93913 8.42143 4.92172 9.17157 4.17157C9.92172 3.42143 10.9391 3 12 3C13.0609 3 14.0783 3.42143 14.8284 4.17157C15.5786 4.92172 16 5.93913 16 7Z" stroke="#1B1D1F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ plus:`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5V19M5 12H19" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ doc:`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 9H16M8 13H16M8 17H12M8 3H16L19 6V21H5V3H8Z" stroke="#1B1D1F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ swap:`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 7H19M15 11L19 7L15 3M19 17H5M9 21L5 17L9 13" stroke="#247A66" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ check:`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ home_i:c=>`<svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M2.75 9.16667L11 2.75L19.25 9.16667V19.25H13.75V12.8333H8.25V19.25H2.75V9.16667Z" stroke="${c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ people:c=>`<svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M14.6666 19.25V17.4167C14.6666 16.4442 14.2803 15.5116 13.5926 14.8239C12.905 14.1363 11.9724 13.75 10.9999 13.75H5.49992C4.52746 13.75 3.59483 14.1363 2.90719 14.8239C2.21956 15.5116 1.83325 16.4442 1.83325 17.4167V19.25M11.9166 2.75C12.889 2.75 13.8217 3.13631 14.5093 3.82394C15.1969 4.51158 15.5833 5.44421 15.5833 6.41667C15.5833 7.38913 15.1969 8.32176 14.5093 9.00939C13.8217 9.69703 12.889 10.0833 11.9166 10.0833M20.1666 19.25V17.4167C20.166 16.6043 19.8956 15.815 19.3978 15.173C18.9001 14.5309 18.2032 14.0723 17.4166 13.8692M10.9999 6.41667C10.9999 7.38913 10.6136 8.32176 9.92598 9.00939C9.23834 9.69703 8.30571 10.0833 7.33325 10.0833C6.36079 10.0833 5.42816 9.69703 4.74053 9.00939C4.05289 8.32176 3.66659 7.38913 3.66659 6.41667C3.66659 5.44421 4.05289 4.51158 4.74053 3.82394C5.42816 3.13631 6.36079 2.75 7.33325 2.75C8.30571 2.75 9.23834 3.13631 9.92598 3.82394C10.6136 4.51158 10.9999 5.44421 10.9999 6.41667Z" stroke="${c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ chat:c=>`<svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M19.2499 13.75C19.2499 14.4793 18.9602 15.1788 18.4445 15.6945C17.9287 16.2102 17.2293 16.5 16.4999 16.5H6.41659L1.83325 20.1666V4.58331C1.83325 3.85397 2.12298 3.15449 2.63871 2.63877C3.15443 2.12304 3.85391 1.83331 4.58325 1.83331H16.4999C17.2293 1.83331 17.9287 2.12304 18.4445 2.63877C18.9602 3.15449 19.2499 3.85397 19.2499 4.58331V13.75Z" stroke="${c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+};
+
+const BREAD=[
+`<svg width="49" height="53" viewBox="0 0 49 53" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4.46019 21.3742C-3.85841 16.7527 0.300895 4.73698 10.0059 3.35055C17.4002 -1.2709 29.8781 -0.808753 37.2724 2.8884C47.9018 3.81269 52.5232 15.3663 45.1289 21.3742V47.2543C44.8208 50.9514 42.8182 52.8 39.121 52.8H10.0059C6.00068 52.8 3.99805 50.7974 3.99805 46.7921L4.46019 21.3742Z" fill="#E9BD80"/><path d="M8.15693 20.4499C1.68691 15.8285 4.92192 7.972 11.8541 7.50986C18.3241 3.35056 28.9534 3.8127 35.4235 7.04771C43.2799 7.972 47.4392 15.3663 41.4313 19.9878V46.33C41.4313 48.1786 40.353 49.1029 38.1963 49.1029H10.9298C8.77313 49.1029 7.69479 48.0245 7.69479 45.8678L8.15693 20.4499Z" fill="#FFF0BC"/><path d="M13.7026 38.4735C15.7445 38.4735 17.3998 37.6459 17.3998 36.6249C17.3998 35.604 15.7445 34.7764 13.7026 34.7764C11.6608 34.7764 10.0055 35.604 10.0055 36.6249C10.0055 37.6459 11.6608 38.4735 13.7026 38.4735Z" fill="#EDB2AC"/><path d="M35.4237 38.4735C37.4656 38.4735 39.1209 37.6459 39.1209 36.6249C39.1209 35.604 37.4656 34.7764 35.4237 34.7764C33.3818 34.7764 31.7266 35.604 31.7266 36.6249C31.7266 37.6459 33.3818 38.4735 35.4237 38.4735Z" fill="#EDB2AC"/><path d="M17.8623 33.3899C18.628 33.3899 19.2487 32.7692 19.2487 32.0035C19.2487 31.2378 18.628 30.6171 17.8623 30.6171C17.0966 30.6171 16.4758 31.2378 16.4758 32.0035C16.4758 32.7692 17.0966 33.3899 17.8623 33.3899Z" fill="#393135"/><path d="M31.2646 33.3899C32.0303 33.3899 32.651 32.7692 32.651 32.0035C32.651 31.2378 32.0303 30.6171 31.2646 30.6171C30.4989 30.6171 29.8782 31.2378 29.8782 32.0035C29.8782 32.7692 30.4989 33.3899 31.2646 33.3899Z" fill="#393135"/><path d="M22.4836 35.7007C24.0241 37.5492 25.5646 37.5492 27.1051 35.7007" stroke="#393135" stroke-width="1.15536" stroke-linecap="round"/></svg>`,
+`<svg width="53" height="42" viewBox="0 0 53 42" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0.49863 21.9185C-0.83105 16.3338 0.49863 11.6799 4.48767 7.95684C6.34922 6.62716 7.41297 7.15903 7.67891 9.55246L8.47671 15.1371C12.0669 1.97328 20.4438 -1.21796 27.2252 0.377661C36.0011 -0.819052 43.5803 5.96232 43.9792 15.1371L46.7715 9.55246C48.1012 7.15903 49.5638 7.42497 51.1595 10.3503C56.7441 22.3174 47.1704 37.4758 36.0011 39.4703C29.0868 41.8637 22.1724 41.5978 15.2581 38.6725C7.67891 35.8801 2.89206 30.2955 0.49863 21.9185Z" fill="#E6B16A"/><path d="M17.651 4.36669C22.7037 1.97327 27.7565 1.97327 32.8093 4.36669C36.5324 12.6107 37.0643 22.7163 34.4049 34.6834C29.0862 37.3428 23.6345 37.2098 18.0499 34.2845C14.8586 23.913 14.7257 13.9404 17.651 4.36669Z" fill="#F2CC87"/><path d="M11.6679 9.95135C9.54041 16.3338 9.93931 22.8493 12.8646 29.4977M39.9901 9.95135C42.3835 16.5998 42.1176 23.1152 39.1923 29.4977" stroke="#CD9558" stroke-width="1.39616" stroke-linecap="round"/><path d="M16.8541 27.902C18.3963 27.902 19.6464 27.1877 19.6464 26.3064C19.6464 25.4252 18.3963 24.7108 16.8541 24.7108C15.3119 24.7108 14.0618 25.4252 14.0618 26.3064C14.0618 27.1877 15.3119 27.902 16.8541 27.902Z" fill="#E6A298"/><path d="M35.2032 27.902C36.7454 27.902 37.9955 27.1877 37.9955 26.3064C37.9955 25.4252 36.7454 24.7108 35.2032 24.7108C33.6611 24.7108 32.4109 25.4252 32.4109 26.3064C32.4109 27.1877 33.6611 27.902 35.2032 27.902Z" fill="#E6A298"/><path d="M20.4435 23.5141C21.1045 23.5141 21.6403 22.9783 21.6403 22.3174C21.6403 21.6565 21.1045 21.1207 20.4435 21.1207C19.7826 21.1207 19.2468 21.6565 19.2468 22.3174C19.2468 22.9783 19.7826 23.5141 20.4435 23.5141Z" fill="#393135"/><path d="M31.6131 23.5141C32.274 23.5141 32.8098 22.9783 32.8098 22.3174C32.8098 21.6565 32.274 21.1207 31.6131 21.1207C30.9522 21.1207 30.4164 21.6565 30.4164 22.3174C30.4164 22.9783 30.9522 23.5141 31.6131 23.5141Z" fill="#393135"/><path d="M24.0336 25.5086C25.3632 27.1042 26.6929 27.1042 28.0226 25.5086" stroke="#393135" stroke-width="0.997261" stroke-linecap="round"/></svg>`,
+`<svg width="53" height="44" viewBox="0 0 53 44" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0.0157446 26.3485C-0.422926 12.7497 8.35048 1.34428 20.6333 0.466943C34.232 -2.16508 48.2695 6.60833 51.7789 19.7684C56.1656 33.8059 46.0761 43.4567 28.0907 43.8953C10.9825 44.7727 0.454415 39.0699 0.0157446 26.3485Z" fill="#F3D2BD"/><path d="M17.1234 7.48567C14.7838 9.82525 13.614 12.1648 13.614 14.5044M25.8968 5.73099C23.2648 8.36301 21.9488 10.8488 21.9488 13.1884M34.6702 7.047C32.0382 9.38658 30.7222 11.5799 30.7222 13.6271" stroke="#E6B89F" stroke-width="1.75468" stroke-linecap="round"/><path d="M14.9305 31.1739C16.8687 31.1739 18.4399 30.3883 18.4399 29.4192C18.4399 28.4501 16.8687 27.6645 14.9305 27.6645C12.9923 27.6645 11.4211 28.4501 11.4211 29.4192C11.4211 30.3883 12.9923 31.1739 14.9305 31.1739Z" fill="#EAB0AC"/><path d="M36.4249 31.1739C38.3631 31.1739 39.9343 30.3883 39.9343 29.4192C39.9343 28.4501 38.3631 27.6645 36.4249 27.6645C34.4867 27.6645 32.9155 28.4501 32.9155 29.4192C32.9155 30.3883 34.4867 31.1739 36.4249 31.1739Z" fill="#EAB0AC"/><path d="M19.3167 26.3485C20.0436 26.3485 20.6328 25.7593 20.6328 25.0325C20.6328 24.3057 20.0436 23.7165 19.3167 23.7165C18.5899 23.7165 18.0007 24.3057 18.0007 25.0325C18.0007 25.7593 18.5899 26.3485 19.3167 26.3485Z" fill="#393135"/><path d="M32.0387 26.3485C32.7655 26.3485 33.3547 25.7593 33.3547 25.0325C33.3547 24.3057 32.7655 23.7165 32.0387 23.7165C31.3119 23.7165 30.7227 24.3057 30.7227 25.0325C30.7227 25.7593 31.3119 26.3485 32.0387 26.3485Z" fill="#393135"/><path d="M23.7039 28.9805C25.1661 30.4428 26.6283 30.4428 28.0906 28.9805" stroke="#393135" stroke-width="1.09668" stroke-linecap="round"/></svg>`,
+`<svg width="37" height="53" viewBox="0 0 37 53" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.34021 50.6791C-2.82652 46.568 0.462405 36.7012 5.8069 26.8345L16.907 6.68981C21.4293 -1.12138 28.0071 -1.53249 32.9405 2.57866C38.285 6.68981 37.0517 13.6788 32.9405 21.49L21.8404 42.868C16.907 51.5014 9.50694 55.6125 3.34021 50.6791Z" fill="#D5A16C"/><path d="M22.2515 7.10092L29.2405 9.97873M17.3181 16.1455L24.7182 19.4344M6.21802 37.9346L13.6181 41.2235" stroke="#F5D7A5" stroke-width="2.87781" stroke-linecap="round"/><path d="M11.5954 32.3141C12.891 31.8931 13.7423 30.9392 13.4967 30.1834C13.2511 29.4276 12.0017 29.1562 10.7061 29.5772C9.41043 29.9981 8.55918 30.9521 8.80475 31.7079C9.05032 32.4637 10.2997 32.7351 11.5954 32.3141Z" fill="#E7AD9C"/><path d="M26.3961 30.6696C27.6918 30.2486 28.543 29.2947 28.2975 28.5389C28.0519 27.7831 26.8025 27.5117 25.5069 27.9327C24.2112 28.3536 23.36 29.3076 23.6055 30.0634C23.8511 30.8192 25.1005 31.0906 26.3961 30.6696Z" fill="#E7AD9C"/><path d="M14.4402 27.5745C15.0759 27.5745 15.5913 27.0591 15.5913 26.4233C15.5913 25.7876 15.0759 25.2722 14.4402 25.2722C13.8044 25.2722 13.2891 25.7876 13.2891 26.4233C13.2891 27.0591 13.8044 27.5745 14.4402 27.5745Z" fill="#393135"/><path d="M23.8956 26.3411C24.5314 26.3411 25.0468 25.8257 25.0468 25.19C25.0468 24.5542 24.5314 24.0389 23.8956 24.0389C23.2599 24.0389 22.7445 24.5542 22.7445 25.19C22.7445 25.8257 23.2599 26.3411 23.8956 26.3411Z" fill="#393135"/><path d="M17.7297 29.3012C19.1001 30.6715 20.3335 30.5345 21.4298 28.89" stroke="#393135" stroke-width="1.02779" stroke-linecap="round"/></svg>`,
+`<svg width="62" height="49" viewBox="0 0 62 49" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18.1943 39.3394C9.15071 36.9595 2.96297 27.9159 4.86689 17.4443C6.77081 6.97271 14.3865 1.73693 21.0502 6.02075C28.1899 10.7806 32.4738 26.0119 40.0894 35.5315C46.2772 43.1472 56.7488 35.5315 57.2247 24.584C58.1767 13.1605 51.9889 4.11683 44.8492 5.06879C36.2816 6.02075 34.3777 21.7281 25.81 32.6757L18.6703 40.7673" stroke="#C3AED6" stroke-width="9.04363" stroke-linecap="round" stroke-linejoin="round"/><path d="M16.2906 39.3394C25.4929 44.7338 35.0125 44.7338 44.8495 39.3394" stroke="#C3AED6" stroke-width="9.51961" stroke-linecap="round"/><path d="M21.0503 41.9573C22.6276 41.9573 23.9062 41.2114 23.9062 40.2913C23.9062 39.3713 22.6276 38.6254 21.0503 38.6254C19.4731 38.6254 18.1945 39.3713 18.1945 40.2913C18.1945 41.2114 19.4731 41.9573 21.0503 41.9573Z" fill="#DEAFCB"/><path d="M40.0894 41.9573C41.6667 41.9573 42.9453 41.2114 42.9453 40.2913C42.9453 39.3713 41.6667 38.6254 40.0894 38.6254C38.5121 38.6254 37.2335 39.3713 37.2335 40.2913C37.2335 41.2114 38.5121 41.9573 40.0894 41.9573Z" fill="#DEAFCB"/><path d="M25.3343 38.2446C26.0441 38.2446 26.6195 37.6692 26.6195 36.9595C26.6195 36.2497 26.0441 35.6743 25.3343 35.6743C24.6246 35.6743 24.0492 36.2497 24.0492 36.9595C24.0492 37.6692 24.6246 38.2446 25.3343 38.2446Z" fill="#393135"/><path d="M35.8063 38.2446C36.516 38.2446 37.0914 37.6692 37.0914 36.9595C37.0914 36.2497 36.516 35.6743 35.8063 35.6743C35.0965 35.6743 34.5211 36.2497 34.5211 36.9595C34.5211 37.6692 35.0965 38.2446 35.8063 38.2446Z" fill="#393135"/><path d="M28.6656 40.2913C29.9349 41.5606 31.2042 41.5606 32.4735 40.2913" stroke="#393135" stroke-width="1.09476" stroke-linecap="round"/></svg>`,
+`<svg width="53" height="47" viewBox="0 0 53 47" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0.122077 30.1833C-1.21781 14.998 8.608 1.59915 22.9001 0.259269C38.0854 -1.97387 50.1444 10.5317 52.3775 25.717C55.0573 39.5625 44.7848 45.8153 27.3664 46.2619C11.7344 47.6018 1.46196 42.6889 0.122077 30.1833Z" fill="#BCD9BE"/><path d="M9.50128 12.3182L20.2203 23.0373M16.6473 5.17215L35.4057 23.9305M29.1529 4.72552L46.5714 22.144M42.5517 11.8716L31.386 23.0373M34.9591 4.72552L16.2007 23.4839M22.0069 5.17215L4.58838 22.5906" stroke="#95BE9F" stroke-width="1.33988" stroke-linecap="round"/><path d="M14.8606 36.8827C16.8339 36.8827 18.4336 36.0829 18.4336 35.0962C18.4336 34.1096 16.8339 33.3097 14.8606 33.3097C12.8873 33.3097 11.2876 34.1096 11.2876 35.0962C11.2876 36.0829 12.8873 36.8827 14.8606 36.8827Z" fill="#E4B7B0"/><path d="M37.1927 36.8827C39.166 36.8827 40.7657 36.0829 40.7657 35.0962C40.7657 34.1096 39.166 33.3097 37.1927 33.3097C35.2193 33.3097 33.6196 34.1096 33.6196 35.0962C33.6196 36.0829 35.2193 36.8827 37.1927 36.8827Z" fill="#E4B7B0"/><path d="M19.7735 31.9699C20.5135 31.9699 21.1134 31.37 21.1134 30.63C21.1134 29.89 20.5135 29.2901 19.7735 29.2901C19.0335 29.2901 18.4336 29.89 18.4336 30.63C18.4336 31.37 19.0335 31.9699 19.7735 31.9699Z" fill="#393135"/><path d="M32.2788 31.9699C33.0188 31.9699 33.6187 31.37 33.6187 30.63C33.6187 29.89 33.0188 29.2901 32.2788 29.2901C31.5389 29.2901 30.939 29.89 30.939 30.63C30.939 31.37 31.5389 31.9699 32.2788 31.9699Z" fill="#393135"/><path d="M23.7937 34.203C25.2825 35.9895 26.7712 35.9895 28.26 34.203" stroke="#393135" stroke-width="1.11657" stroke-linecap="round"/></svg>`,
+`<svg width="53" height="50" viewBox="0 0 53 50" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M0.0496648 25.8655C-0.836031 11.2515 10.2352 0.623127 24.4063 0.180279C40.7917 -1.59111 52.7486 9.92293 52.7486 24.5369C53.6343 40.0366 43.0059 48.8936 26.6205 49.3364C11.1209 50.2221 0.935361 41.3651 0.0496648 25.8655ZM18.6493 21.8798C18.6493 26.7512 21.7492 29.4082 26.6205 29.4082C31.9347 29.4082 35.0347 25.4226 34.5918 20.5513C34.149 16.1228 30.6062 13.9086 26.1777 14.3514C21.7492 14.3514 18.2064 17.4513 18.6493 21.8798Z" fill="#E9B7C0"/><path d="M9.79224 14.3514L12.0065 13.0229M18.2063 6.823L20.4206 7.70869M33.2632 7.26585L35.4774 8.59439M43.4487 17.0085L44.3344 19.2227" stroke="#F7DADE" stroke-width="1.54997" stroke-linecap="round"/><path d="M15.9921 39.3723C17.7042 39.3723 19.0921 38.6784 19.0921 37.8224C19.0921 36.9663 17.7042 36.2724 15.9921 36.2724C14.2801 36.2724 12.8922 36.9663 12.8922 37.8224C12.8922 38.6784 14.2801 39.3723 15.9921 39.3723Z" fill="#D99AA9"/><path d="M37.2484 39.3723C38.9604 39.3723 40.3483 38.6784 40.3483 37.8224C40.3483 36.9663 38.9604 36.2724 37.2484 36.2724C35.5363 36.2724 34.1484 36.9663 34.1484 37.8224C34.1484 38.6784 35.5363 39.3723 37.2484 39.3723Z" fill="#D99AA9"/><path d="M20.4204 35.5195C21.1052 35.5195 21.6604 34.9644 21.6604 34.2796C21.6604 33.5948 21.1052 33.0396 20.4204 33.0396C19.7356 33.0396 19.1804 33.5948 19.1804 34.2796C19.1804 34.9644 19.7356 35.5195 20.4204 35.5195Z" fill="#393135"/><path d="M32.8204 35.5195C33.5052 35.5195 34.0604 34.9644 34.0604 34.2796C34.0604 33.5948 33.5052 33.0396 32.8204 33.0396C32.1356 33.0396 31.5804 33.5948 31.5804 34.2796C31.5804 34.9644 32.1356 35.5195 32.8204 35.5195Z" fill="#393135"/><path d="M24.4062 37.3795C25.8824 39.1509 27.3586 39.1509 28.8347 37.3795" stroke="#393135" stroke-width="1.06284" stroke-linecap="round"/></svg>`,
+`<svg width="53" height="50" viewBox="0 0 53 50" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0.126884 27.0619C-1.20984 12.8036 8.14719 1.66425 21.96 0.32753C38.0006 -1.90033 50.0311 7.4567 52.2589 21.715C55.3779 39.0924 44.6842 48.895 28.6436 49.7861C12.1574 51.1228 1.90918 44.4392 0.126884 27.0619Z" fill="#DBB58D"/><path d="M7.25643 24.834C3.69185 15.0314 13.94 5.67441 25.0794 6.11999C37.5554 5.22884 46.4668 14.1403 46.0213 22.6062C45.5757 30.1809 38.4465 32.8544 32.2085 30.6265C26.8616 28.8442 26.4161 24.3885 30.4262 21.2695M30.4262 21.2695C34.4364 18.1505 37.5554 20.8239 36.6642 23.0518M30.4262 21.2695C31.7629 17.2593 30.4262 14.5859 25.0794 13.2492C17.5046 11.0213 8.59315 18.1505 13.4945 26.1708" stroke="#B78765" stroke-width="2.67344" stroke-linecap="round"/><path d="M15.2768 41.9886C16.9994 41.9886 18.3959 41.2904 18.3959 40.4291C18.3959 39.5678 16.9994 38.8696 15.2768 38.8696C13.5543 38.8696 12.1578 39.5678 12.1578 40.4291C12.1578 41.2904 13.5543 41.9886 15.2768 41.9886Z" fill="#E5AEA0"/><path d="M37.1096 41.9886C38.8322 41.9886 40.2286 41.2904 40.2286 40.4291C40.2286 39.5678 38.8322 38.8696 37.1096 38.8696C35.387 38.8696 33.9906 39.5678 33.9906 40.4291C33.9906 41.2904 35.387 41.9886 37.1096 41.9886Z" fill="#E5AEA0"/><path d="M19.732 37.3101C20.4702 37.3101 21.0687 36.7116 21.0687 35.9734C21.0687 35.2351 20.4702 34.6367 19.732 34.6367C18.9937 34.6367 18.3953 35.2351 18.3953 35.9734C18.3953 36.7116 18.9937 37.3101 19.732 37.3101Z" fill="#393135"/><path d="M32.6539 37.3101C33.3921 37.3101 33.9906 36.7116 33.9906 35.9734C33.9906 35.2351 33.3921 34.6367 32.6539 34.6367C31.9156 34.6367 31.3171 35.2351 31.3171 35.9734C31.3171 36.7116 31.9156 37.3101 32.6539 37.3101Z" fill="#393135"/><path d="M24.1882 39.538C25.6735 41.3203 27.1587 41.3203 28.644 39.538" stroke="#393135" stroke-width="1.11393" stroke-linecap="round"/></svg>`,
+`<svg width="53" height="47" viewBox="0 0 53 47" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0.0730269 30.4565C-0.7895 20.5375 6.11072 12.7747 14.3047 8.03082C18.6174 5.87451 19.9112 1.99313 23.7925 0.699342C28.5364 -1.88824 33.2803 3.28692 36.7304 6.73703C44.9244 11.0497 52.2559 19.6749 52.6872 28.7315C53.981 40.8069 44.0619 45.982 27.2426 46.4133C11.2859 47.2758 1.36682 42.1007 0.0730269 30.4565Z" fill="#BED7E8"/><path d="M24.2243 5.44324C22.4993 8.03082 20.343 9.89963 17.7554 11.0497M26.8119 5.44324V11.9122M29.8308 6.30576C31.5558 8.89335 33.4246 10.7622 35.4372 11.9122" stroke="#98BDD7" stroke-width="1.50942" stroke-linecap="round"/><path d="M15.1674 34.3379C17.0728 34.3379 18.6175 33.5656 18.6175 32.6129C18.6175 31.6602 17.0728 30.8878 15.1674 30.8878C13.262 30.8878 11.7173 31.6602 11.7173 32.6129C11.7173 33.5656 13.262 34.3379 15.1674 34.3379Z" fill="#DFBCCB"/><path d="M37.5932 34.3379C39.4986 34.3379 41.0433 33.5656 41.0433 32.6129C41.0433 31.6602 39.4986 30.8878 37.5932 30.8878C35.6877 30.8878 34.1431 31.6602 34.1431 32.6129C34.1431 33.5656 35.6877 34.3379 37.5932 34.3379Z" fill="#DFBCCB"/><path d="M17.7554 27.4377C19.1929 28.5877 20.6305 28.5877 22.068 27.4377M30.6933 27.4377C32.1308 28.5877 33.5684 28.5877 35.0059 27.4377M24.6556 32.1816C25.8056 33.0441 26.9557 33.0441 28.1057 32.1816" stroke="#393135" stroke-width="1.12129" stroke-linecap="round"/></svg>`
+];
+/* ================= 아이콘 (피그마에서 내보냄) ================= */
+const IC={
+ flag:`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 21V3" stroke="#1B1D1F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 4C10 1 13 7 19 4V14C13 17 10 11 5 14" stroke="#1B1D1F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ camera:`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6H8L10 3H14L16 6H20C20.5304 6 21.0391 6.21071 21.4142 6.58579C21.7893 6.96086 22 7.46957 22 8V19C22 19.5304 21.7893 20.0391 21.4142 20.4142C21.0391 20.7893 20.5304 21 20 21H4C3.46957 21 2.96086 20.7893 2.58579 20.4142C2.21071 20.0391 2 19.5304 2 19V8C2 7.46957 2.21071 6.96086 2.58579 6.58579C2.96086 6.21071 3.46957 6 4 6Z" stroke="#1B1D1F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 17C14.2091 17 16 15.2091 16 13C16 10.7909 14.2091 9 12 9C9.79086 9 8 10.7909 8 13C8 15.2091 9.79086 17 12 17Z" stroke="#1B1D1F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ photo:`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 3H6C4.34315 3 3 4.34315 3 6V18C3 19.6569 4.34315 21 6 21H18C19.6569 21 21 19.6569 21 18V6C21 4.34315 19.6569 3 18 3Z" stroke="#1B1D1F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 9.5C8.82843 9.5 9.5 8.82843 9.5 8C9.5 7.17157 8.82843 6.5 8 6.5C7.17157 6.5 6.5 7.17157 6.5 8C6.5 8.82843 7.17157 9.5 8 9.5Z" stroke="#1B1D1F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 17L8 12L12 16L15 13L21 19" stroke="#1B1D1F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ chev:`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="#1B1D1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ down:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="#686C70" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ unpaid:`<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" fill="#E5484D"/><path d="M6.6 6.6l6.8 6.8M13.4 6.6l-6.8 6.8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`,
+ paid:`<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" fill="#247A66"/><path d="M5.8 10.3l2.9 2.9 5.5-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ sent:`<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFF2DD" stroke="#C8963E" stroke-width="1.5"/><path d="M10 5.5V10l3 2" stroke="#9A4A06" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>`,
+ link:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1M14 10a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1" stroke="#1B1D1F" stroke-width="1.8" stroke-linecap="round"/></svg>`
+};
+
+/* ================= 규칙 ================= */
+const RULES=[
+ {id:'r1',name:'1차는 1차끼리!',short:'1차는 1차끼리',lb:'1차는<br>1차끼리!',desc:'각 차수의 비용은<br>함께한 사람끼리만 나눠요.',tip:'이번 차수에 없던 사람은 이 정산에서 빠져요',d:0},
+ {id:'r2',name:'식사 + 술 함께 공평하게',short:'식사+술 함께 공평하게',lb:'식사 + 술<br>함께 공평하게',desc:'음식과 술을 나누지 않고<br>모두 똑같이 나눠요.',tip:'음식과 술을 구분하지 않고 모두 똑같이 나눠요',d:-.13},
+ {id:'r3',name:'술 안 마시면 술값은 빼요',short:'술 안 마시면 술값 제외',lb:'술 안 마시면<br>술값은 빼요',desc:'술값은 술을 마신 사람끼리,<br>음식값은 함께 나눠요.',tip:'술 안 마신 사람은 술값을 빼고 나눠요',d:-.27},
+ {id:'r4',name:'늦게 왔다면 참여한 차수만',short:'늦게 왔다면 참여한 차수만',lb:'늦게 왔다면<br>참여한 차수만',desc:'늦게 왔다면<br>참여한 차수부터 나눠요.',tip:'참여자가 체크인할 때 참석한 차수를 골라요',d:-.05},
+ {id:'r5',name:'먼저 갔다면 함께한 차수만',short:'먼저 갔다면 함께한 차수만',lb:'먼저 갔다면<br>함께한 차수만',desc:'먼저 갔다면<br>함께한 차수까지만 나눠요.',tip:'참여자가 체크인할 때 참석한 차수를 골라요',d:-.25},
+ {id:'r6',name:'개별 메뉴는 먹은 사람끼리',short:'개별 메뉴는 먹은 사람끼리',lb:'개별 메뉴는<br>먹은 사람끼리',desc:'따로 시킨 메뉴는<br>먹은 사람끼리 나눠요.',tip:'영수증 항목을 ‘개별’로 넣으면 먹은 사람만 내요',d:-.38},
+ {id:'r7',name:'쿠폰 · 할인도 함께 나눠요',short:'쿠폰·할인도 함께',lb:'쿠폰 · 할인도<br>함께 나눠요',desc:'쿠폰·할인 금액도<br>모두에게 똑같이 빼 줘요.',tip:'‘할인’ 항목을 넣으면 모두에게 똑같이 빼 줘요',d:-.19},
+ {id:'r8',name:'생일 주인공은 오늘 무료!',short:'생일 주인공은 무료',lb:'생일 주인공은<br>오늘 무료!',desc:'생일 주인공 몫은<br>나머지가 함께 내요.',tip:'생일인 사람 몫은 나머지가 나눠 내요',d:-.33},
+ {id:'r9',name:'잔돈은 총무가 부담해요',short:'잔돈은 총무 부담',lb:'잔돈은 총무가<br>부담해요',desc:'100원 아래 잔돈은<br>총무가 부담해요.',tip:'100원 아래 끝자리는 내려서 받고, 차이는 결제자가 내요',d:-.47}
+];
+const ruleOn=(m,id)=>(m.rules||[]).includes(id);
+const rulesOf=m=>RULES.filter(r=>ruleOn(m,r.id));
+const ITEM_TYPES={common:'음식',drink:'술',personal:'개별',discount:'할인'};
+function itemTypes(m){const t=['common','drink'];if(ruleOn(m,'r6'))t.push('personal');if(ruleOn(m,'r7'))t.push('discount');return t}
+const roundOf=m=>{const x=/(\d)\s*차/.exec(m.place||'');return x?+x[1]:1};
+
+/* ================= 유틸 ================= */
+const won=n=>Math.round(n).toLocaleString('ko-KR');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rid=p=>(p||'')+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const shell=document.getElementById('shell');
+const WEB=!!(window.BBK_SUPA&&window.supabase);
+const ART_URL=WEB?(location.origin+location.pathname):'https://claude.ai/artifact/5px1P4Ppvv1VJyWxx4ZwZa';
+const newCode=()=>'BG-'+String(Math.floor(1000+Math.random()*9000));
+const SAFE=/^[A-Za-z0-9_\-.~:@+]{1,120}$/;
+
+function toast(msg){document.querySelectorAll('.toast').forEach(t=>t.remove());const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2800)}
+function sheet(html,bind){
+  const s=document.createElement('div');s.className='scrim';
+  s.innerHTML='<div class="sheet" role="dialog" aria-modal="true">'+html+'</div>';
+  s.addEventListener('click',e=>{if(e.target===s)s.remove()});
+  document.body.appendChild(s);const close=()=>s.remove();
+  s.querySelectorAll('[data-close]').forEach(b=>b.onclick=close);
+  bind&&bind(s,close);return close;
+}
+async function copy(text,msg){
+  try{await navigator.clipboard.writeText(text);toast(msg||'복사했어요. 카톡에 붙여넣기 하세요');}
+  catch(e){sheet(`<h3>아래 글을 길게 눌러 복사하세요</h3><textarea class="sf ta" readonly></textarea><button class="btn line" data-close>닫기</button>`,s=>{const ta=s.querySelector('textarea');ta.value=text;ta.focus();ta.select();});}
+}
+const lsGet=(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const ssGet=k=>{try{return sessionStorage.getItem(k)}catch(e){return null}};
+const ssSet=(k,v)=>{try{sessionStorage.setItem(k,v)}catch(e){}};
+
+/* ================= 저장소: 함께 쓰는 저장소(claude.ai) 또는 이 브라우저 =================
+   meets/<gid>            모임(총무가 만듦, 링크 받은 사람이 읽음)
+   checkins/<gid>_<pkey>  참여자 체크인 한 장씩
+   data/users/<uid>/_profile  총무 닉네임 */
+const LocalDB=(()=>{
+  const KEY='bbk.v4.db';let mem=lsGet(KEY,{});const subs=new Set();
+  const save=()=>lsSet(KEY,mem);
+  const emit=()=>subs.forEach(f=>{try{f()}catch(e){}});
+  window.addEventListener('storage',e=>{if(e.key===KEY){mem=lsGet(KEY,{});emit()}});
+  const snap=(path)=>{const d=mem[path];const id=path.split('/').pop();return {id,exists:!!d,data:()=>d?JSON.parse(JSON.stringify(d)):undefined,metadata:{fromCache:false,hasPendingWrites:false}}};
+  function doc(path){return {id:path.split('/').pop(),path,
+    get:async()=>snap(path),
+    set:async(d)=>{mem[path]=JSON.parse(JSON.stringify(d));save();emit()},
+    update:async(d)=>{if(!mem[path])throw {code:'invalid_argument'};mem[path]={...mem[path],...JSON.parse(JSON.stringify(d))};save();emit()},
+    delete:async()=>{delete mem[path];save();emit()},
+    onSnapshot:(next)=>{const f=()=>next(snap(path));subs.add(f);setTimeout(f,0);return ()=>subs.delete(f)}}}
+  function query(col,filters){
+    const run=()=>{const docs=Object.keys(mem).filter(p=>p.startsWith(col+'/')&&p.split('/').length===col.split('/').length+1).map(snap).filter(s=>filters.every(([f,op,v])=>{const x=s.data()[f];return op==='=='?x===v:op==='array-contains'?Array.isArray(x)&&x.includes(v):true}));return {docs,size:docs.length,empty:!docs.length,metadata:{fromCache:false}}};
+    return {where:(f,op,v)=>query(col,[...filters,[f,op,v]]),get:async()=>run(),onSnapshot:(next)=>{const f=()=>next(run());subs.add(f);setTimeout(f,0);return ()=>subs.delete(f)}}}
+  return {doc,collection:(col)=>({...query(col,[]),doc:(id)=>doc(col+'/'+(id||rid('d')))})};
+})();
+
+/* 웹 버전: Supabase 테이블 bbk_docs(path, coll, data) 하나에 문서를 저장. 로그인 없이 기기별 키로 구분 */
+const SupaDB=(()=>{
+  if(!WEB)return null;
+  const T='bbk_docs';const cli=window.supabase.createClient(window.BBK_SUPA.url,window.BBK_SUPA.key,{auth:{persistSession:false}});
+  const subs=new Set();let t=null;const emit=()=>{clearTimeout(t);t=setTimeout(()=>subs.forEach(f=>{try{f()}catch(e){}}),120)};
+  try{cli.channel('bbk').on('postgres_changes',{event:'*',schema:'public',table:T},emit).subscribe()}catch(e){}
+  setInterval(()=>{if(!document.hidden)emit()},15000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)emit()});
+  const clone=d=>JSON.parse(JSON.stringify(d));
+  const mk=(path,d)=>({id:path.split('/').pop(),exists:!!d,data:()=>d?clone(d):undefined,metadata:{fromCache:false,hasPendingWrites:false}});
+  const fail=e=>{throw {code:'unavailable',message:(e&&e.message)||String(e)}};
+  async function getOne(path){const {data,error}=await cli.from(T).select('data').eq('path',path).maybeSingle();if(error)fail(error);return data?data.data:null}
+  async function put(path,d){const {error}=await cli.from(T).upsert({path,coll:path.split('/')[0],data:d,updated_at:new Date().toISOString()});if(error)fail(error);emit()}
+  function doc(path){return {id:path.split('/').pop(),path,
+    get:async()=>mk(path,await getOne(path)),
+    set:async(d)=>put(path,clone(d)),
+    update:async(d)=>{const cur=await getOne(path);if(!cur)throw {code:'invalid_argument'};await put(path,{...cur,...clone(d)})},
+    delete:async()=>{const {error}=await cli.from(T).delete().eq('path',path);if(error)fail(error);emit()},
+    onSnapshot:(next,err)=>{let alive=true;const f=()=>getOne(path).then(d=>{if(alive)next(mk(path,d))},e=>{if(alive&&err)err(e)});subs.add(f);f();return ()=>{alive=false;subs.delete(f)}}}}
+  function query(col,filters){
+    const run=async()=>{let q=cli.from(T).select('path,data').eq('coll',col);
+      for(const [f,op,v] of filters)if(op==='==')q=q.eq('data->>'+f,String(v));
+      const {data,error}=await q.limit(500);if(error)fail(error);
+      const docs=(data||[]).map(r=>mk(r.path,r.data)).filter(s=>filters.every(([f,op,v])=>op!=='array-contains'||(Array.isArray(s.data()[f])&&s.data()[f].includes(v))));
+      return {docs,size:docs.length,empty:!docs.length,metadata:{fromCache:false}}};
+    return {where:(f,op,v)=>query(col,[...filters,[f,op,v]]),get:run,
+      onSnapshot:(next,err)=>{let alive=true;const f=()=>run().then(r=>{if(alive)next(r)},e=>{if(alive&&err)err(e)});subs.add(f);f();return ()=>{alive=false;subs.delete(f)}}}}
+  return {doc,collection:(col)=>({...query(col,[]),doc:(id)=>doc(col+'/'+(id||rid('d')))})};
+})();
+
+const Store={mode:WEB?'cloud':'local',db:WEB?SupaDB:LocalDB,uid:null,user:null,canWrite:null,sample:null,
+  async init(){
+    try{
+      if(!WEB&&window.claude&&window.claude.use){
+        const [db,user,sample]=await Promise.all([window.claude.use('db'),window.claude.use('user'),window.claude.use('sample')]);
+        this.user=user;this.sample=sample;
+        if(db){this.db=db;this.mode='cloud';
+          const id=user?await user.id():null;if(id&&SAFE.test(id))this.uid=id;
+          this.canWrite=user?await user.can('data.write'):null;}
+      }
+    }catch(e){}
+  },
+  myKey(){if(this.uid)return this.uid;let k=lsGet('bbk.key',null);if(!k){k=rid('k');lsSet('bbk.key',k)}return k},
+  /* 참여자 키: 이 기기(브라우저)마다 하나. 시연용 ‘다른 사람으로 체크인’은 이 탭에서만 바뀜 */
+  pKey(){return ssGet('bbk.pkey.demo')||this.myKey()},
+  async loadProfile(){
+    if(this.mode==='cloud'&&this.uid){try{const s=await this.db.doc('data/users/'+this.uid+'/_profile').get();if(s.exists)return s.data()}catch(e){}}
+    return lsGet('bbk.profile.v1',null);
+  },
+  saveProfile(p){lsSet('bbk.profile.v1',p);if(this.mode==='cloud'&&this.uid){this.db.doc('data/users/'+this.uid+'/_profile').set(p).catch(()=>{})}},
+  async clearProfile(){try{localStorage.removeItem('bbk.profile.v1')}catch(e){}if(this.mode==='cloud'&&this.uid){try{await this.db.doc('data/users/'+this.uid+'/_profile').delete()}catch(e){}}}
+};
+const withTimeout=(p,ms=10000)=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r({code:'timeout'}),ms))]);
+
+/* ================= 계산 ================= */
+function peopleFor(m,cks){
+  const r=roundOf(m), byRound=ruleOn(m,'r1')||ruleOn(m,'r4')||ruleOn(m,'r5');
+  const ppl=[...cks].sort((a,b)=>(a.at||0)-(b.at||0)).map(c=>{
+    let status='base';const rounds=(c.rounds||[]).map(Number);
+    if(byRound&&rounds.length&&!rounds.includes(r))status=rounds.some(x=>x>r)?'late':'early';
+    else if(ruleOn(m,'r8')&&c.bday)status='bday';
+    else if(ruleOn(m,'r3')&&c.drink===false)status='nodrink';
+    return {id:c.pkey,name:c.name||'이름 없음',status,rounds,personal:c.personal||[],sent:!!c.sent,objection:c.objection||'',paid:!!(m.paid&&m.paid[c.pkey]),ck:c};
+  });
+  let payer=ppl.find(p=>(p.name||'').trim()&&(p.name||'').trim()===(m.payer||'').trim());
+  if(!payer){payer={id:'__payer',name:m.payer||'총무',status:'base',rounds:[],personal:[],synthetic:true};ppl.unshift(payer)}
+  else{ppl.splice(ppl.indexOf(payer),1);ppl.unshift(payer)}
+  return {ppl,payerId:payer.id};
+}
+const NOTE={nodrink:'술을 마시지 않아요',late:'',early:'',bday:'오늘 생일이에요'};
+function noteOf(m,p){
+  if(p.status==='late'||p.status==='early'){const rs=p.rounds.map(x=>x+'차').join('·');return rs?`${rs}에만 왔어요`:'이번 차수엔 없었어요'}
+  return NOTE[p.status]||'';
+}
+function compute(m,cks){
+  const {ppl,payerId}=peopleFor(m,cks);
+  const r2=ruleOn(m,'r2'),r3=ruleOn(m,'r3')&&!r2,r6=ruleOn(m,'r6'),r7=ruleOn(m,'r7'),r8=ruleOn(m,'r8'),r9=ruleOn(m,'r9');
+  const out=p=>p.status==='late'||p.status==='early';
+  const free=p=>r8&&p.status==='bday';
+  const active=ppl.filter(p=>!out(p)), sharers=active.filter(p=>!free(p));
+  let common=0,drink=0,discount=0,personalTotal=0,hadDrink=false;const pers={};
+  (m.items||[]).forEach(i=>{const a=Math.abs(+i.amount||0);if(!a)return;let t=i.type||'common';
+    if(t==='drink')hadDrink=true;
+    if(t==='personal'&&!r6)t='common';if(t==='discount'&&!r7)t='none';
+    if(t==='common')common+=a;else if(t==='drink')drink+=a;else if(t==='discount')discount+=a;
+    else if(t==='personal'){const eaters=sharers.filter(p=>p.personal.includes(i.id));
+      if(eaters.length){eaters.forEach(p=>(pers[p.id]=pers[p.id]||[]).push({name:i.name||'개별 메뉴',a:a/eaters.length}));personalTotal+=a}else common+=a}});
+  const total=Math.max(0,common+drink+personalTotal-discount);
+  const drinkers=r3?sharers.filter(p=>p.status!=='nodrink'):sharers;
+  const rnd=v=>r9?Math.floor(v/100)*100:Math.ceil(v/100)*100;
+  const foodLabel='음식';
+  const rows={};
+  ppl.forEach(p=>{
+    if(out(p)){rows[p.id]={amount:0,exact:0,why:[`이번 ${roundOf(m)}차에 없어서 이 정산에서 빠져요`]};return}
+    if(free(p)){rows[p.id]={amount:0,exact:0,why:['생일 주인공이라 오늘은 무료예요']};return}
+    const c=sharers.length?common/sharers.length:0, d=drinkers.includes(p)?drink/drinkers.length:0;
+    const pe=(pers[p.id]||[]).reduce((a,x)=>a+x.a,0), di=sharers.length?discount/sharers.length:0;
+    const why=[];
+    if(common>0)why.push(`${foodLabel} ${won(common)}원 ÷ ${sharers.length}명 = ${won(c)}원`);
+    if(drink>0)why.push(drinkers.includes(p)?`술 ${won(drink)}원 ÷ ${drinkers.length}명 = ${won(d)}원`:'술값은 빠져요');
+    (pers[p.id]||[]).forEach(x=>why.push(`개별 메뉴 ${x.name} ${won(x.a)}원`));
+    if(discount)why.push(`할인 −${won(discount)}원 ÷ ${sharers.length}명 = −${won(di)}원`);
+    rows[p.id]={exact:c+d+pe-di,why};
+  });
+  let others=0;
+  ppl.forEach(p=>{if(p.id!==payerId){const r=rows[p.id];r.amount=(out(p)||free(p))?0:Math.max(0,rnd(r.exact));others+=r.amount}});
+  rows[payerId].amount=total-others;
+  if(r9&&rows[payerId].amount>rnd(rows[payerId].exact||0)+0.5&&sharers.length>1)rows[payerId].why=[...(rows[payerId].why||[]),'남은 잔돈은 총무가 부담해요'];
+  const denom=Math.max(+m.expected||0,active.length,1);
+  const nb=rnd(total/denom);
+  const owed=ppl.filter(p=>p.id!==payerId&&rows[p.id].amount>0);
+  const paid=owed.filter(p=>p.paid);
+  return {ppl,payerId,rows,total,common,drink,discount,personalTotal,foodLabel,nb,owed,paid,
+    received:paid.reduce((a,p)=>a+rows[p.id].amount,0),toReceive:owed.reduce((a,p)=>a+rows[p.id].amount,0),
+    checked:cks.length,objections:ppl.filter(p=>p.objection)};
+}
+
+/* ================= 메시지 ================= */
+const linkOf=m=>ART_URL+'#m-'+m.id;
+const titleOf=m=>(m.title||'이름 없는 모임')+(m.place?' · '+m.place:'');
+function msgInvite(m){
+  return `[빵끗] ${m.payer||'총무'}님이 ‘${titleOf(m)}’ 정산을 열었어요.\n아래 링크에서 규칙을 확인하고 체크인해 주세요.\n${linkOf(m)}\n\n함께 지킬 규칙: ${rulesOf(m).map(r=>r.short).join(' · ')||'규칙 없이 N빵'}`;
+}
+function msgRemind(m,c){
+  const left=c.owed.filter(p=>!p.paid);
+  if(!left.length)return `[빵끗] ${titleOf(m)}\n모두 보내 주셨어요. 고마워요!`;
+  let s=`[빵끗] ${titleOf(m)}\n아직 확인이 안 된 분들께 살짝 알려 드려요.\n\n`;
+  left.forEach(p=>{s+=`${p.name} ${won(c.rows[p.id].amount)}원\n`});
+  if(m.account)s+=`\n보낼 곳: ${m.account}`;
+  return s+`\n자세한 내역: ${linkOf(m)}`;
+}
+function msgPerson(m,c,p){
+  const r=c.rows[p.id];
+  let s=`[빵끗] ${titleOf(m)}\n${p.name} 님 몫은 ${won(r.amount)}원이에요.\n\n왜 이 금액이냐면요\n${r.why.map(x=>'· '+x).join('\n')}`;
+  if(m.account)s+=`\n\n보낼 곳: ${m.account}`;
+  return s+`\n금액이 다르면 링크에서 깃발을 눌러 알려 주세요.\n${linkOf(m)}`;
+}
+
+/* ================= 상태 & 라우팅 ================= */
+const state={view:'onb1',profile:null,draft:null,ruleSel:null,mid:null,meet:null,cks:[],tab:'est',subs:[],joinName:'',ans:null,myMeets:[],homeFilter:'all',open:false};
+function unsubAll(){state.subs.forEach(u=>{try{u()}catch(e){}});state.subs=[]}
+function go(view){
+  state.view=view;
+  try{const want=['org','join','join2','me'].includes(view)&&state.mid?'#m-'+state.mid:'';if(location.hash!==want)history.replaceState(null,'',want||location.pathname+location.search)}catch(e){}
+  render();window.scrollTo(0,0);
+}
+const myName=()=>(state.profile&&state.profile.nickname)||'';
+const myCk=()=>state.cks.find(c=>c.pkey===Store.pKey());
+const isOwnerOf=m=>m&&m.ownerKey===Store.myKey();
+
+function render(){
+  const v=state.view;
+  shell.classList.toggle('clip',v==='onb1');
+  shell.classList.toggle('wide',['onb1','onb2','onb3','create','rules','rulecheck','link','home','mine','msglist'].includes(v));
+  ({onb1:r01,onb2:r02,onb3:r03,create:r04,rules:r041,rulecheck:r042,form:r05,items:r051,link:r06,org:r07,me:r07,join:rJoin,join2:rJoin2,home:r00,mine:rMine,msglist:rMsgList,missing:rMissing}[v]||r00)();
+}
+
+/* ---------- 01·02·03 온보딩 ---------- */
+function r01(){
+  shell.innerHTML=`<div class="bigbread">${SVG.big}</div>
+  <section class="view onb">
+    <div class="toprow" style="justify-content:flex-end">${statusHTML()}</div>
+    <div style="height:clamp(40px,12vh,110px)"></div>
+    <h1 class="h1" style="line-height:32px">반가워요, 빵끗이에요!</h1>
+    <p class="lead" style="margin-top:16px">즐거운 모임의 마무리,<br>정산은 제가 도와드릴게요.</p>
+    <div class="grow"></div>
+    <button class="btn" data-act="to02" style="position:relative;z-index:2">빵끗 시작하기</button>
+  </section>`;
+}
+const statusHTML=()=>`<span class="status ${Store.mode==='cloud'?'':'local'}"><i></i>${WEB?'온라인 저장 중':Store.mode==='cloud'?'내 계정에 저장 중':'이 기기에 저장 중'}</span>`;
+function r02(){
+  shell.innerHTML=`<section class="view onb">
+    <div style="height:clamp(24px,10vh,116px)"></div>
+    <div class="bread" style="width:min(280px,72vw)">${SVG.happy}</div>
+    <h1 class="h1" style="margin-top:36px">규칙은 함께,<br>정산은 깔끔하게.</h1>
+    <p class="lead" style="margin-top:14px">빵끗은 정산 규칙을 함께 만들고,<br>금액을 나누고, 정산금을 주고받는<br>서비스예요.</p>
+    <div class="grow"></div>
+    <button class="btn" data-act="to03">내 모임 만들기</button>
+  </section>`;
+}
+function r03(){
+  shell.innerHTML=`<section class="view onb">
+    <div style="height:clamp(16px,11vh,114px)"></div>
+    <div class="bread" style="width:180px">${SVG.curious}<span class="q" style="left:153px;top:34px" aria-hidden="true">?</span></div>
+    <h1 class="h1" style="margin-top:18px">오늘이 처음이세요?!</h1>
+    <p class="lead" style="margin-top:12px;line-height:23px">닉네임만 설정하면,<br>고유번호가 만들어져요</p>
+    <form id="suForm" novalidate style="display:flex;flex-direction:column;flex:1;width:100%;margin-top:22px">
+      <div class="field"><label class="label" for="suNick">닉네임</label>
+        <input class="in" id="suNick" maxlength="12" autocomplete="nickname" placeholder="빵끗에서 사용할 이름"></div>
+      <div class="grow"></div>
+      <div class="cap err" id="suErr" hidden>닉네임을 적어 주세요.</div>
+      <button class="btn idle" type="submit" id="suSubmit">가입하고 시작하기</button>
+    </form>
+  </section>`;
+  const nick=document.getElementById('suNick'),btn=document.getElementById('suSubmit'),err=document.getElementById('suErr');
+  const sync=()=>{btn.classList.toggle('idle',!nick.value.trim());if(nick.value.trim())err.hidden=true};
+  if(state.profile)nick.value=state.profile.nickname||'';sync();
+  ['input','keyup','compositionend','change'].forEach(ev=>nick.addEventListener(ev,sync));
+  document.getElementById('suForm').addEventListener('submit',e=>{
+    e.preventDefault();const v=nick.value.trim();if(!v){err.hidden=false;nick.focus();return}
+    const old=state.profile;
+    state.profile={...(old||{}),nickname:v,code:(old&&old.code)||newCode(),createdAt:(old&&old.createdAt)||Date.now()};
+    Store.saveProfile(state.profile);
+    toast(old?`${v} 님, 다시 만나서 반가워요`:`${v} 님의 고유번호 ${state.profile.code}가 만들어졌어요`);
+    go('create');
+  });
+  setTimeout(()=>nick.focus(),80);
+}
+
+/* ---------- 04 모임생성 ---------- */
+function r04(){
+  shell.innerHTML=`<section class="view onb">
+    <div class="toprow">${state.profile?'<button class="back" data-nav="home">‹ 홈으로</button>':'<span></span>'}</div>
+    <div style="height:clamp(8px,9vh,94px)"></div>
+    <div class="bread" style="width:min(280px,72vw)">${SVG.welcome}</div>
+    <h1 class="h1" style="margin-top:36px">이제 모임을<br>만들어볼까요?</h1>
+    <p class="lead" style="margin-top:14px">모임을 만들고,<br>함께 정산할 규칙을 정해요.</p>
+    <div class="grow"></div>
+    <button class="btn" data-act="torules">+ 새 모임 정산하기</button>
+  </section>`;
+}
+/* ---------- 04-1 규칙 고르기 ---------- */
+function r041(){
+  const sel=state.ruleSel||(state.ruleSel=['r1','r3']);
+  shell.innerHTML=`<section class="view onb" style="align-items:stretch">
+    <button class="back" data-nav="create">‹ 뒤로</button>
+    <h1 class="h1" style="text-align:left;padding-left:5px;margin-top:clamp(0px,4vh,44px)">이 모임의<br>규칙을 정해주세요</h1>
+    <p class="lead" style="text-align:left;padding-left:7px;margin-top:-10px">규칙은 한번 정하면 변경할수 없어요</p>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:-8px">
+      <span class="cap" style="font-size:12px">마음에 드는 규칙을 모두 골라주세요</span>
+      <span class="cap" style="font-size:12px"><b style="color:var(--ink)" id="ruleCount">${sel.length}</b> 개 선택</span></div>
+    <div class="rulegrid" role="group" aria-label="모임 규칙">${RULES.map((r,i)=>`
+      <button class="rule" data-rule="${r.id}" aria-pressed="${sel.includes(r.id)}" aria-label="${r.name}">
+        <span class="icw"><span class="ic ${i%2?'r':''}" style="animation-delay:${(r.d*6).toFixed(2)}s">${BREAD[i]}</span><span class="ck" aria-hidden="true">✓</span></span>
+        <span class="lb">${r.lb}</span></button>`).join('')}</div>
+    <p class="cap" style="text-align:center;font-size:12px;margin-top:-4px">빵을 한 번 더 누르면 선택이 해제돼요</p>
+    <div class="grow"></div>
+    <button class="btn" data-act="rulecheck">+ 새 모임 정산하기</button>
+  </section>`;
+}
+/* ---------- 규칙 카드 (04-2 · 체크인 · 07 공통) ---------- */
+function ruleCards(rules){
+  if(!rules.length)return `<div class="rcard"><span class="ri"></span><span><b>규칙 없이 N빵</b><span class="cap">모두 똑같이 나눠요.</span></span></div>`;
+  return rules.map(r=>{const i=RULES.indexOf(r);return `<div class="rcard"><span class="ri"><span class="ic ${i%2?'r':''}" style="animation-delay:${(r.d*6).toFixed(2)}s">${BREAD[i]}</span></span><span class="rt"><b>${r.name}</b><span class="cap">${r.desc}</span></span></div>`}).join('');
+}
+/* ---------- 04-2 규칙 확인 ---------- */
+function r042(){
+  const rules=RULES.filter(r=>state.ruleSel.includes(r.id));
+  shell.innerHTML=`<section class="view onb" style="align-items:stretch">
+    <button class="back" data-nav="rules">‹ 뒤로</button>
+    <h1 class="h1 left" style="margin-top:clamp(0px,4vh,40px)">우리 모임의 규칙,<br>다 같이 확인해요</h1>
+    <p class="lead left" style="margin-top:-2px;line-height:23px">정산하기 전에 함께 읽어주세요.<br>모두가 같은 규칙으로 공평하게 나눠요.</p>
+    <div class="label" style="margin-top:18px;color:var(--sub)">함께 지킬 규칙 · ${rules.length}개</div>
+    <div class="rcards">${ruleCards(rules)}</div>
+    <div class="grow"></div>
+    <p class="cap" style="font-size:12px;line-height:19px">한번 정한 규칙은 변경할 수 없어요.<br>모두 확인했다면 다음으로 넘어가 주세요.</p>
+    <button class="btn" data-act="toform">확인했어요</button>
+  </section>`;
+}
+/* ---------- 05 모임 정보 ---------- */
+function r05(){
+  const d=state.draft;
+  shell.innerHTML=`<section class="view">
+    <div class="toprow"><button class="back" data-nav="rulecheck">‹ 뒤로</button><span class="label" style="color:var(--sub)">1 / 2</span></div>
+    <div style="display:flex;flex-direction:column;gap:6px"><h1 class="title">모임 만들기</h1><p class="subt">정산을 시작할 모임 정보를 입력해 주세요.</p></div>
+    <section class="card"><div class="ch sub">모임 정보</div>
+      <div class="row2"><label class="f">모임 이름<input class="fi" id="f-title" data-f="title" value="${esc(d.title)}" placeholder="예: 팀 회식"></label>
+        <label class="f">차수 · 장소<input class="fi" id="f-place" data-f="place" value="${esc(d.place)}" placeholder="예: 1차 횟집"></label></div>
+      <div class="row2"><label class="f">날짜<input class="fi" type="date" id="f-date" data-f="date" value="${esc(d.date)}"></label>
+        <label class="f">결제한 사람<input class="fi" id="f-payer" data-f="payer" value="${esc(d.payer)}" placeholder="예: 김연희"></label></div>
+      <div class="row2"><label class="f" style="flex:2 1 0">받을 곳 (계좌·카카오페이 안내, 선택)<input class="fi" id="f-account" data-f="account" value="${esc(d.account)}" placeholder="예: 카카오뱅크 3333-00-0000000"></label>
+        <label class="f" style="flex:1 1 0">모임 인원<input class="fi num" id="f-expected" data-f="expected" inputmode="numeric" value="${d.expected||''}" placeholder="예: 5"></label></div>
+      <div class="cap">결제한 사람도 체크인할 때 같은 이름을 쓰면 한 사람으로 계산돼요.</div>
+    </section>
+    <div class="cap err" id="formErr" hidden></div>
+    <div class="grow"></div>
+    <button class="btn" data-act="toitems" style="border-radius:27px">다음 · 영수증 추가하기</button>
+  </section>`;
+}
+/* ---------- 05-1 영수증 항목 ---------- */
+function r051(){
+  const d=state.draft, types=itemTypes(d);
+  const t=state.itemType&&types.includes(state.itemType)?state.itemType:'common';
+  const total=d.items.reduce((a,i)=>a+(i.type==='discount'?-1:1)*(+i.amount||0),0);
+  shell.innerHTML=`<section class="view">
+    <div class="toprow"><button class="back" data-nav="form">‹ 뒤로</button><span class="label" style="color:var(--sub)">2 / 2</span></div>
+    <div style="display:flex;flex-direction:column;gap:6px"><h1 class="title">영수증 항목 추가하기</h1><p class="subt">촬영하거나 사진을 불러오고, 직접 입력해요.</p></div>
+    <section class="card"><div><b class="h15">영수증으로 빠르게 추가</b><div class="cap" style="margin-top:6px">영수증 전체가 잘 보이도록 준비해 주세요.</div></div>
+      <div class="row2 g10">
+        <label class="tile" for="camIn">${IC.camera}<b>카메라</b><span class="cap">지금 촬영하기</span></label>
+        <label class="tile" for="galIn">${IC.photo}<b>사진</b><span class="cap">갤러리에서 선택</span></label></div>
+      <input type="file" id="camIn" accept="image/*" capture="environment" hidden>
+      <input type="file" id="galIn" accept="image/*" hidden>
+      <div class="cap" id="ocrNote" ${state.ocr?'':'hidden'}>${esc(state.ocr||'')}</div>
+    </section>
+    <section class="card"><div><b class="h15">직접 입력하기</b><div class="cap" style="margin-top:6px">영수증이 없어도 항목별로 추가할 수 있어요.</div></div>
+      <label class="fl2" for="iName">항목명</label><input class="in2" id="iName" placeholder="예: 모둠회, 맥주" autocomplete="off">
+      <div class="row2 g10" style="align-items:end"><div style="flex:0 0 46%;display:flex;flex-direction:column;gap:6px"><label class="fl2" for="iAmt">금액 (원)</label><input class="in2 num" id="iAmt" inputmode="numeric" placeholder="금액 입력" autocomplete="off"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span class="fl2">분류</span><div class="seg2" role="radiogroup" aria-label="분류">${types.map(k=>`<button role="radio" aria-checked="${k===t}" data-itype="${k}">${ITEM_TYPES[k]}</button>`).join('')}</div></div></div>
+      <button class="btn softb" data-act="additem">+ 항목 추가</button>
+      <div class="cap">${typeHint(d)}</div>
+    </section>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px"><b class="h15">추가된 항목 · ${d.items.length}개</b><b class="label num">합계 ${won(Math.max(0,total))}원</b></div>
+    ${d.items.length?Object.keys(ITEM_TYPES).filter(k=>d.items.some(i=>(i.type||'common')===k)).map(k=>{const its=d.items.filter(i=>(i.type||'common')===k);const sub=its.reduce((a,i)=>a+(+i.amount||0),0);
+      return `<div class="igroup"><div class="ighead"><span class="badge ${k}">${ITEM_TYPES[k]}</span><span class="cap">${its.length}개</span><b class="num">${k==='discount'?'−':''}${won(sub)}원</b></div><div class="ilist">${its.map(i=>`<div class="irow"><span class="iname">${esc(i.name||'이름 없음')}</span><span class="num iamt">${i.type==='discount'?'−':''}${won(i.amount)}원</span><button class="xbtn" data-idel="${i.id}" aria-label="${esc(i.name)} 삭제">×</button></div>`).join('')}</div></div>`}).join(''):'<div class="ilist"><div class="empty-in">아직 추가한 항목이 없어요.<br>영수증을 불러오거나 직접 추가해 주세요.</div></div>'}
+    <button class="btn" data-act="makemeet" ${d.items.length?'':'disabled'}>다음 · 체크인 링크 만들기</button>
+  </section>`;
+  ['camIn','galIn'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(f)readReceipt(f)}));
+  document.getElementById('iAmt').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addItem()}});
+  const DRINK=/소주|맥주|참이슬|처음처럼|진로|새로|카스|테라|켈리|하이네켄|생맥|막걸리|와인|하이볼|사케|위스키|칵테일|양주|소맥|beer|soju|wine/i;
+  document.getElementById('iName').addEventListener('input',e=>{if(!DRINK.test(e.target.value)||!types.includes('drink'))return;state.itemType='drink';document.querySelectorAll('[data-itype]').forEach(x=>x.setAttribute('aria-checked',String(x.dataset.itype==='drink')))});
+  document.getElementById('iName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('iAmt').focus()}});
+}
+function typeHint(m){
+  const h=[ruleOn(m,'r3')&&!ruleOn(m,'r2')?'‘음식’은 모두, ‘술’은 술 마신 사람끼리':'‘음식’과 ‘술’은 따로 적고 모두 함께'];if(ruleOn(m,'r6'))h.push('‘개별’은 먹은 사람만');if(ruleOn(m,'r7'))h.push('‘할인’은 모두에게 똑같이 빼서');
+  return h.join(', ')+' 나눠요. 술 이름을 적으면 ‘술’로 자동 선택돼요.';
+}
+function addItem(){
+  const n=document.getElementById('iName'),a=document.getElementById('iAmt');
+  const amt=parseInt(String(a.value).replace(/[^0-9]/g,''),10)||0;
+  if(!amt){a.focus();toast('금액을 적어 주세요');return}
+  const types=itemTypes(state.draft);const t=state.itemType&&types.includes(state.itemType)?state.itemType:'common';
+  state.draft.items.push({id:rid('i'),name:n.value.trim()||ITEM_TYPES[t],amount:amt,type:t});
+  state.itemType='common';
+  r051();document.getElementById('iName').focus();
+}
+async function readReceipt(file){
+  const note=()=>document.getElementById('ocrNote');
+  const say=m=>{state.ocr=m;const n=note();if(n){n.hidden=false;n.textContent=m}};
+  const s=Store.sample;
+  let lim=null;try{lim=s?await s.limits():null}catch(e){}
+  if(!s||!lim||!lim.images){say(WEB?'사진은 받았어요. 영수증 자동 인식은 준비 중이에요. 아래에 직접 입력해 주세요.':'사진은 받았어요. 영수증 자동 인식은 claude.ai 링크에서만 돼요. 아래에 직접 입력해 주세요.');return}
+  say('영수증을 읽고 있어요… 잠시만 기다려 주세요.');
+  const types=itemTypes(state.draft);
+  try{
+    const arr=await s.json(`이 사진은 한국 식당 영수증이야. 주문 항목을 읽어서 JSON 배열만 답해 줘.
+형식: [{"name":"모둠회(대)","amount":68000,"type":"common"}]
+- amount: 그 줄의 합계 금액(원, 정수, 수량×단가가 이미 곱해진 값)
+- type: 소주·맥주·와인·막걸리·하이볼·사케 같은 술은 "drink", 할인·쿠폰 줄은 "discount"(amount는 양수), 나머지는 "common"
+- 합계, 부가세, 봉사료, 카드·승인 정보 줄은 빼
+- 읽을 수 없으면 []`,{images:[file],modelTier:'default'});
+    const list=(Array.isArray(arr)?arr:[]).map(x=>({name:String(x.name||'').slice(0,40),amount:Math.abs(parseInt(x.amount,10)||0),type:['common','drink','discount'].includes(x.type)?x.type:'common'})).filter(x=>x.amount>0)
+      .map(x=>({...x,type:x.type==='drink'&&!types.includes('drink')?'common':x.type})).filter(x=>x.type!=='discount'||types.includes('discount'));
+    if(!list.length){say('영수증에서 항목을 찾지 못했어요. 더 밝게 다시 찍거나 직접 입력해 주세요.');return}
+    list.forEach(x=>state.draft.items.push({id:rid('i'),...x}));
+    state.ocr=`영수증에서 ${list.length}개 항목을 넣었어요. 금액이 맞는지 확인해 주세요.`;r051();
+  }catch(e){
+    const m={not_granted:'Claude 사용을 허락하지 않아서 자동 인식을 할 수 없어요. 직접 입력해 주세요.',rate_limited:'잠시 후 다시 시도해 주세요.',image_rejected:'이 사진은 읽을 수 없어요. 다른 사진을 골라 주세요.',invalid_json:'영수증을 잘 읽지 못했어요. 다시 찍거나 직접 입력해 주세요.'}[e&&e.code];
+    say(m||'영수증을 읽지 못했어요. 직접 입력해 주세요.');
+  }
+}
+async function makeMeet(){
+  const d=state.draft;
+  const m={...d,id:d.id||rid('g'),ownerKey:Store.myKey(),round:roundOf(d),paid:{},createdAt:Date.now(),updatedAt:Date.now()};
+  try{await withTimeout(Store.db.doc('meets/'+m.id).set(m))}
+  catch(e){toast(e&&e.code==='invalid_argument'?'저장 권한이 없어요. 모임 주인 계정으로 열어 주세요.':'저장하지 못했어요. 잠시 후 다시 눌러 주세요.');return}
+  state.draft=null;state.mid=m.id;state.meet=m;state.ocr='';
+  go('link');
+}
+/* ---------- 06 링크 만들기 ---------- */
+function r06(){
+  shell.innerHTML=`<section class="view onb">
+    <div class="toprow"><button class="back" data-nav="home">‹ 홈으로</button></div>
+    <div style="height:clamp(8px,8vh,80px)"></div>
+    <div class="bread" style="width:min(280px,72vw)">${SVG.welcome}</div>
+    <h1 class="h1" style="margin-top:36px">체크인 페이지가<br>만들어졌어요</h1>
+    <p class="lead" style="margin-top:14px">아래를 클릭하시면,<br>공유할수 있는 링크가 생성되요</p>
+    <div class="grow"></div>
+    <button class="btn" data-act="makelink">모임 링크 생성하기</button>
+  </section>`;
+}
+function linkSheet(m){
+  const local=Store.mode!=='cloud';
+  sheet(`<h3>모임 링크가 생겼어요</h3>
+    <div class="linkbox">${IC.link}<span class="num">${esc(linkOf(m))}</span></div>
+    <button class="btn kakao" data-copy-invite>초대 메시지 복사하기</button>
+    <button class="btn line" data-copy-link>링크만 복사하기</button>
+    <div class="cap">${local?'지금은 HTML 파일로 열려 있어서 링크는 이 기기에서만 시연할 수 있어요. 아래 버튼으로 참여자 화면을 열어 보세요.':WEB?'링크를 받은 사람은 로그인 없이 바로 체크인할 수 있어요. 휴대폰(브라우저)마다 따로 기억해요.':'참여자도 claude.ai에 로그인해야 하고, 연희님이 이 페이지 공유 메뉴에서 이메일로 <b>편집자</b> 초대를 해 줘야 체크인을 저장할 수 있어요.'}</div>
+    <button class="btn line" data-demo>이 기기에서 참여자 화면 열기</button>
+    <button class="btn" data-status>정산 현황 보기</button>`,
+  (s,close)=>{
+    s.querySelector('[data-copy-invite]').onclick=()=>copy(msgInvite(m),'초대 메시지를 복사했어요. 단톡방에 붙여 넣어 주세요');
+    s.querySelector('[data-copy-link]').onclick=()=>copy(linkOf(m),'링크를 복사했어요');
+    s.querySelector('[data-demo]').onclick=()=>{close();ssSet('bbk.pkey.demo',rid('p'));state.joinName='';openMeet(m.id,'join')};
+    s.querySelector('[data-status]').onclick=()=>{close();openMeet(m.id,'org')};
+  });
+}
+
+/* ---------- 모임 열기(구독) ---------- */
+function openMeet(gid,want,tab){
+  unsubAll();state.mid=gid;state.cks=[];state.meet=null;state.tab=tab||'est';state.open=false;
+  let gotMeet=false,gotCks=false,decided=false,timer=setTimeout(()=>{if(!gotMeet){state.view='missing';state.missingWhy='timeout';render()}},10000);
+  const decide=()=>{
+    if(!gotMeet||!gotCks)return;
+    if(!state.meet){clearTimeout(timer);state.view='missing';state.missingWhy='none';render();return}
+    clearTimeout(timer);
+    if(decided){if(['org','me'].includes(state.view))r07();return}
+    decided=true;let v=want;
+    if(!v)v=isOwnerOf(state.meet)&&!ssGet('bbk.pkey.demo')?'org':myCk()?'me':'join';
+    if(v==='join'&&myCk())v='me';
+    go(v);
+  };
+  state.subs.push(Store.db.doc('meets/'+gid).onSnapshot(s=>{state.meet=s.exists?s.data():null;gotMeet=true;decide()},()=>{gotMeet=true;decide()}));
+  state.subs.push(Store.db.collection('checkins').where('meetId','==',gid).onSnapshot(q=>{state.cks=q.docs.map(d=>d.data());gotCks=true;decide()},()=>{gotCks=true;decide()}));
+}
+function rMissing(){
+  const cloud=Store.mode==='cloud';
+  shell.innerHTML=`<section class="view onb">
+    <div style="height:clamp(16px,10vh,100px)"></div>
+    <div class="bread" style="width:180px">${SVG.curious}<span class="q" style="left:153px;top:34px" aria-hidden="true">?</span></div>
+    <h1 class="h1" style="margin-top:18px">모임을 찾지 못했어요</h1>
+    <p class="lead" style="margin-top:12px;line-height:23px">${state.missingWhy==='timeout'?'저장소에 연결하지 못했어요.<br>잠시 후 다시 열어 주세요.':cloud?'링크가 맞는지 확인해 주세요.<br>모임이 삭제되었을 수도 있어요.':'이 링크의 모임은 claude.ai에 있어요.<br>claude.ai에 로그인한 상태로 열어 주세요.'}</p>
+    <div class="grow"></div>
+    <button class="btn" data-act="tohome">빵끗 처음 화면으로</button>
+  </section>`;
+}
+
+/* ---------- 참여자 체크인 ---------- */
+function joinHead(){
+  const m=state.meet;
+  return `<div class="toprow"><span class="label" style="color:var(--sub)">함께하는 정산</span><button class="icon44" data-act="objection" aria-label="이의 신청">${IC.flag}</button></div>
+    <h1 class="title" style="font-size:24px;line-height:34px;margin-top:-6px">모임정산이<br>도착했어요.</h1>
+    <p class="cap" style="margin-top:-8px">${esc(m.payer||'총무')}님의 ‘${esc(titleOf(m))}’ · ${esc((m.date||'').replace(/-/g,'.'))}</p>`;
+}
+function rJoin(){
+  const m=state.meet;const rules=rulesOf(m);const blocked=Store.mode==='cloud'&&Store.canWrite===false;
+  shell.innerHTML=`<section class="view">
+    ${joinHead()}
+    <p class="subt" style="margin-top:-6px">규칙을 확인하고, 체크인 해주세요.</p>
+    <div class="field"><label class="label" for="jName">내 이름</label><input class="in" id="jName" maxlength="12" autocomplete="name" placeholder="단톡방에서 쓰는 이름" value="${esc(state.joinName||(ssGet('bbk.pkey.demo')?'':myName()))}"></div>
+    <div class="label" style="color:var(--sub);margin-top:4px">함께 지킬 규칙 · ${rules.length}개</div>
+    <div class="rcards">${ruleCards(rules)}</div>
+    ${blocked?`<div class="warn">이 링크에서는 아직 체크인을 저장할 수 없어요. ${esc(m.payer||'총무')}님께 이 페이지의 <b>편집자 초대</b>를 요청해 주세요.</div>`:''}
+    <div class="grow"></div>
+    <p class="cap" style="font-size:12px;line-height:19px">규칙을 확인했다면 체크인해 주세요.<br>이 모임의 정산에 함께 참여하게 돼요.</p>
+    <div class="cap err" id="jErr" hidden>이름을 적어 주세요.</div>
+    <button class="btn" data-act="join1">체크인 완료하기</button>
+    ${Store.mode!=='cloud'||isOwnerOf(m)?'<button class="textlink u" data-act="asowner">총무 화면으로 돌아가기</button>':''}
+  </section>`;
+  document.getElementById('jName').addEventListener('input',e=>{state.joinName=e.target.value;document.getElementById('jErr').hidden=true});
+}
+function questions(m){
+  const q=[];
+  if(ruleOn(m,'r1')||ruleOn(m,'r4')||ruleOn(m,'r5'))q.push({k:'rounds',bread:0,t:'몇 차에 참석하고 계신가요?',multi:true,opts:[[1,'1차'],[2,'2차'],[3,'3차']],hint:`이 정산은 ${roundOf(m)}차 비용이에요. 참석한 차수를 모두 골라 주세요.`});
+  if(ruleOn(m,'r3')&&!ruleOn(m,'r2'))q.push({k:'drink',bread:2,t:'술을 마시는 분이신가요?',opts:[[true,'네, 마셔요'],[false,'아니요']]});
+  if(ruleOn(m,'r8'))q.push({k:'bday',bread:7,t:'오늘 생일이신가요?',opts:[[true,'네, 생일이에요'],[false,'아니요']]});
+  const pers=(m.items||[]).filter(i=>i.type==='personal');
+  if(ruleOn(m,'r6')&&pers.length)q.push({k:'personal',bread:5,t:'따로 드신 메뉴가 있나요?',multi:true,opts:pers.map(i=>[i.id,`${i.name} ${won(i.amount)}원`]),hint:'드신 메뉴를 모두 골라 주세요. 없으면 그냥 넘어가요.'});
+  return q;
+}
+function rJoin2(){
+  const m=state.meet,qs=questions(m),a=state.ans;
+  shell.innerHTML=`<section class="view">
+    ${joinHead()}
+    <div style="height:8px"></div>
+    ${qs.map(q=>`<div class="qcard"><div class="qhead"><span class="ri"><span class="ic">${BREAD[q.bread]}</span></span><b>${q.t}</b></div>
+      ${q.hint?`<div class="cap">${q.hint}</div>`:''}
+      <div class="chips" role="${q.multi?'group':'radiogroup'}" aria-label="${q.t}">${q.opts.map(([v,l])=>{const on=q.multi?(a[q.k]||[]).includes(v):a[q.k]===v;return `<button class="chip" ${q.multi?'aria-pressed':'role="radio" aria-checked'}="${on}" data-q="${q.k}" data-v='${JSON.stringify(v)}' data-multi="${q.multi?1:0}">${esc(l)}</button>`}).join('')}</div></div>`).join('')}
+    <div class="grow"></div>
+    <div class="cap err" id="qErr" hidden></div>
+    <button class="btn" data-act="join2">답변 완료</button>
+    <button class="textlink" data-act="tojoin">‹ 규칙 다시 보기</button>
+  </section>`;
+}
+async function saveCheckin(){
+  const m=state.meet,qs=questions(m),a=state.ans;
+  const miss=qs.find(q=>!q.multi&&a[q.k]===undefined)||qs.find(q=>q.k==='rounds'&&!(a.rounds||[]).length);
+  if(miss){const e=document.getElementById('qErr');e.hidden=false;e.textContent=`‘${miss.t}’에 답해 주세요.`;return}
+  const pkey=Store.pKey();const old=myCk()||{};
+  const doc={...old,meetId:m.id,pkey,name:state.joinName.trim(),rounds:a.rounds||[],drink:a.drink!==undefined?a.drink:true,bday:!!a.bday,personal:a.personal||[],at:old.at||Date.now(),updatedAt:Date.now()};
+  try{await withTimeout(Store.db.doc('checkins/'+m.id+'_'+pkey).set(doc))}
+  catch(e){
+    if(e&&e.code==='invalid_argument'){Store.canWrite=false;sheet(`<h3>체크인을 저장하지 못했어요</h3><div class="cap">이 페이지에 쓸 권한이 아직 없어요. ${esc(m.payer||'총무')}님께 claude.ai 공유 메뉴에서 이메일로 <b>편집자</b> 초대를 해 달라고 요청해 주세요.</div><button class="btn" data-close>알겠어요</button>`)}
+    else toast('저장하지 못했어요. 잠시 후 다시 눌러 주세요.');
+    return}
+  toast('체크인했어요!');state.tab='est';go('me');
+}
+
+/* ---------- 07 내 정산 확인 (참여자 · 총무 공통) ---------- */
+function r07(){
+  const m=state.meet;if(!m){rMissing();return}
+  const c=compute(m,state.cks);const org=state.view==='org';const me=myCk();const meP=me&&c.ppl.find(p=>p.id===me.pkey);
+  const exp=+m.expected||0;
+  const head=`<div class="toprow">${org?'<button class="back" data-nav="home">‹ 홈으로</button>':'<span class="label" style="color:var(--sub)">함께하는 정산</span>'}<button class="icon44" data-act="objection" aria-label="${org?'이의 신청 보기':'이의 신청'}">${IC.flag}${org&&c.objections.length?`<i class="dot">${c.objections.length}</i>`:''}</button></div>
+    <div class="mhead"><h1 class="title">${esc(m.payer||'총무')}님의 모임</h1>
+      <span class="label" style="color:var(--sub)">${exp?`체크인 인원 ${exp}명중 ${c.checked}명 참여수락`:`체크인 ${c.checked}명 참여수락`}</span>
+      <button class="label linkish" data-act="objection">이의신청 ${c.objections.length}명</button></div>
+    ${org?`<div class="row2"><button class="btn line small2" data-act="share">${IC.link} 참여 링크 공유</button><button class="btn line small2" data-act="remind">미입금 알림 복사</button></div>`:''}
+    <div class="tabs r18" role="tablist"><button role="tab" aria-selected="${state.tab==='est'}" data-tab="est">예상 금액</button><button role="tab" aria-selected="${state.tab==='pay'}" data-tab="pay">송금현황</button></div>`;
+  let body='';
+  if(state.tab==='est'){
+    const mine=!org&&meP;const amt=mine?c.rows[meP.id].amount:c.nb;
+    const detail=mine?c.rows[meP.id].why.map(x=>`<li>${esc(x)}</li>`).join('')
+      :`<li>총 ${won(c.total)}원 (${esc(c.foodLabel)} ${won(c.common)}원${c.drink?` · 술 ${won(c.drink)}원`:''}${c.personalTotal?` · 개별 ${won(c.personalTotal)}원`:''}${c.discount?` · 할인 −${won(c.discount)}원`:''})</li><li>${exp?`모임 인원 ${exp}명`:`체크인 ${Math.max(1,c.ppl.length)}명`} 기준 N빵이에요. 규칙에 따라 사람마다 달라질 수 있어요.</li>`;
+    body=`<button class="estcard" data-act="toggleEst" aria-expanded="${state.open}"><span class="el">${IC.down} ${mine?'내 예상 정산 금액':'예상 1인당 정산 금액'}</span><span class="ea num">${won(amt)}원</span></button>
+      ${state.open?`<ul class="why">${detail}</ul>`:''}
+      ${!mine&&!org?'<div class="cap">아직 체크인하지 않았어요. 체크인하면 내 금액이 보여요.</div>':''}
+      <div class="label" style="color:var(--sub);margin-top:6px">함께 지킬 규칙 · ${rulesOf(m).length}개</div>
+      <div class="rcards">${ruleCards(rulesOf(m))}</div>
+      <div class="grow"></div>
+      <p class="cap" style="font-size:12px">이의 신청은 오른쪽 상단의 아이콘을 클릭해주세요</p>
+      <button class="btn" data-act="ack">확인했어요</button>`;
+  }else{
+    body=`<div class="plist">${c.ppl.map(p=>{const r=c.rows[p.id];const isPayer=p.id===c.payerId;const note=isPayer?'결제했어요':noteOf(m,p);
+      const icon=isPayer||!r.amount?'<span class="sicon"></span>':p.paid?`<span class="sicon" title="받음 확인">${IC.paid}</span>`:p.sent?`<span class="sicon" title="보냈어요">${IC.sent}</span>`:`<span class="sicon" title="아직 안 보냄">${IC.unpaid}</span>`;
+      return `<button class="pcard" data-person="${esc(p.id)}">${icon}<span class="pc"><span class="pn"><b>${esc(p.name)}${p.id===(me&&me.pkey)?' (나)':''}</b>${note?`<span>${esc(note)}</span>`:''}</span><span class="pa num">${won(r.amount)}원</span></span><span class="pch">${IC.chev}</span></button>`}).join('')}</div>
+      <div class="cap legend"><span>${IC.paid} 받음 확인</span><span>${IC.sent} 보냈어요</span><span>${IC.unpaid} 아직</span></div>
+      ${payInfo(m,c,org,meP)}
+      ${!org&&!me?'<button class="btn" data-act="tojoin">체크인하러 가기</button>':''}`;
+  }
+  shell.innerHTML=`<section class="view">${head}${body}
+    ${Store.mode!=='cloud'&&!org?'<button class="textlink u" data-act="demoagain">다른 사람으로 체크인하기 (시연)</button>':''}
+    ${Store.mode!=='cloud'&&!org&&isOwnerOf(m)?'<button class="textlink u" data-act="asowner">총무 화면으로 돌아가기</button>':''}
+  </section>`;
+}
+function acctNum(a){const x=(a||'').match(/\d[\d\- ]{5,}\d/);return x?x[0].replace(/\s+/g,''):(a||'')}
+function payInfo(m,c,org,meP){
+  const myAmt=!org&&meP&&meP.id!==c.payerId?c.rows[meP.id].amount:0;
+  const sent=!org&&meP&&meP.sent;
+  if(!m.account)return `<div class="payinfo"><div class="pi-h">송금 정보</div><p class="cap">${org?'받을 계좌가 아직 없어요. 모임 정보에서 받을 곳을 넣어 주세요.':'총무가 아직 받을 계좌를 넣지 않았어요.'}</p></div>`;
+  return `<div class="payinfo"><div class="pi-h">송금 정보</div>
+    <div class="pi-row"><span class="cap">받는 분</span><b>${esc(m.payer||'총무')}</b></div>
+    <div class="pi-row"><span class="cap">계좌</span><b class="num">${esc(m.account).replace(/-/g,'\u2011')}</b><button class="btn line small2" data-act="copyacctnum">복사</button></div>
+    ${myAmt?`<div class="pi-row"><span class="cap">보낼 금액</span><b class="num">${won(myAmt)}원</b><button class="btn line small2" data-act="copyamt">복사</button></div>`:''}
+    <button class="btn line" data-act="copyall">${IC.link} 송금 정보 한 번에 복사</button>
+    ${myAmt?`<button class="btn ${sent?'line':''}" data-act="togglesent">${sent?'보냈어요 취소':'송금했어요'}</button>`:''}
+  </div>`}
+function personSheet(pid){
+  const m=state.meet,c=compute(m,state.cks),p=c.ppl.find(x=>x.id===pid);if(!p)return;
+  const r=c.rows[p.id],org=state.view==='org',mine=p.id===Store.pKey(),isPayer=p.id===c.payerId;
+  sheet(`<h3>${esc(p.name)} · <span class="num">${won(r.amount)}원</span></h3>
+    <ul class="why">${r.why.map(x=>`<li>${esc(x)}</li>`).join('')}${noteOf(m,p)?`<li>${esc(noteOf(m,p))}</li>`:''}</ul>
+    ${p.objection?`<div class="warn">이의 신청: ${esc(p.objection)}</div>`:''}
+    ${!isPayer&&r.amount&&org&&!p.synthetic?`<button class="btn ${p.paid?'line':''}" data-paid>${p.paid?'받음 확인 취소':'받음 확인'}</button><button class="btn kakao" data-pmsg>개인 메시지 복사</button>`:''}
+    ${!isPayer&&r.amount&&mine?`${m.account?`<div class="acct"><span class="cap">보낼 곳</span><b>${esc(m.account)}</b></div>`:''}<button class="btn ${p.sent?'line':''}" data-sent>${p.sent?'보냈어요 취소':'송금했어요'}</button>`:''}
+    <button class="btn line" data-close>닫기</button>`,
+  (s,close)=>{
+    const pb=s.querySelector('[data-paid]');if(pb)pb.onclick=async()=>{const paid={...(m.paid||{})};if(p.paid)delete paid[p.id];else paid[p.id]=true;
+      try{await Store.db.doc('meets/'+m.id).update({paid,updatedAt:Date.now()});toast(p.paid?'받음 확인을 취소했어요':`${p.name} 님 받음 확인`)}catch(e){toast('저장하지 못했어요')}close()};
+    const mb=s.querySelector('[data-pmsg]');if(mb)mb.onclick=()=>copy(msgPerson(m,c,p));
+    const sb=s.querySelector('[data-sent]');if(sb)sb.onclick=async()=>{try{await Store.db.doc('checkins/'+m.id+'_'+p.id).update({sent:!p.sent,updatedAt:Date.now()});toast(p.sent?'취소했어요':'송금했다고 알렸어요. 총무가 확인하면 초록색으로 바뀌어요')}catch(e){toast('저장하지 못했어요')}close()};
+  });
+}
+function objectionSheet(){
+  const m=state.meet,c=compute(m,state.cks),org=state.view==='org';
+  if(org){
+    sheet(`<h3>이의 신청 ${c.objections.length}건</h3>${c.objections.length?c.objections.map(p=>`<div class="card" style="gap:6px"><b>${esc(p.name)}</b><span class="cap">${esc(p.objection)}</span><span class="cap num">지금 금액 ${won(c.rows[p.id].amount)}원</span></div>`).join(''):'<div class="cap">아직 이의 신청이 없어요.</div>'}
+      <div class="cap">규칙은 바꿀 수 없어요. 금액이 잘못됐다면 참여자에게 체크인 답변을 고쳐 달라고 하거나, 영수증 항목을 확인해 주세요.</div><button class="btn line" data-close>닫기</button>`);
+    return;
+  }
+  const me=myCk();
+  if(!me){toast('체크인한 뒤에 이의 신청을 할 수 있어요');return}
+  sheet(`<h3>이의 신청</h3><div class="cap">${esc(m.payer||'총무')}님만 볼 수 있어요. 어떤 점이 다른지 짧게 적어 주세요.</div>
+    <textarea class="sf ta" id="objText" maxlength="200" placeholder="예: 저는 1차 중간에 왔어요">${esc(me.objection||'')}</textarea>
+    <div class="row2"><button class="btn line" data-close>취소</button><button class="btn" data-ok>보내기</button></div>
+    <button class="textlink u" data-edit>체크인 답변 고치기</button>`,
+  (s,close)=>{
+    s.querySelector('[data-ok]').onclick=async()=>{const t=s.querySelector('#objText').value.trim();
+      try{await Store.db.doc('checkins/'+m.id+'_'+me.pkey).update({objection:t,updatedAt:Date.now()});toast(t?'이의 신청을 보냈어요':'이의 신청을 거뒀어요');close()}catch(e){toast('저장하지 못했어요')}};
+    s.querySelector('[data-edit]').onclick=()=>{close();state.joinName=me.name;state.ans={rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[]};go(questions(m).length?'join2':'join')};
+  });
+}
+
+/* ---------- 00 홈 · 내 모임 · 메시지 ---------- */
+let homeSub=null;
+function watchMyMeets(){
+  if(homeSub)return;
+  homeSub=Store.db.collection('meets').where('ownerKey','==',Store.myKey()).onSnapshot(q=>{state.myMeets=q.docs.map(d=>d.data()).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));if(['home','mine','msglist'].includes(state.view))render()},()=>{});
+}
+function gcard(m){
+  return `<button class="gcard" data-open="${m.id}"><div class="t">${esc(titleOf(m))}</div>
+    <div class="cap num">${esc(m.date||'')} · 총 ${won((m.items||[]).reduce((a,i)=>a+(i.type==='discount'?-1:1)*(+i.amount||0),0))}원 · 규칙 ${(m.rules||[]).length}개</div></button>`;
+}
+function nav(){
+  const it=[['home','홈',SVG.home_i],['mine','내 모임',SVG.people],['msglist','메시지',SVG.chat]];
+  return `<nav class="nav" aria-label="하단 메뉴">${it.map(([k,l,ic])=>{const on=state.view===k;return `<button data-nav="${k}" ${on?'aria-current="page"':''}>${ic(on?'#1B1D1F':'#686C70')}${l}</button>`}).join('')}</nav>`;
+}
+function r00(){
+  watchMyMeets();unsubAll();
+  const list=state.myMeets;
+  shell.innerHTML=`<section class="view">
+    <header class="hhead"><h1 class="title">홈</h1><div class="icons">
+      <button class="icon" data-act="me" aria-label="내 계정">${SVG.user}</button></div></header>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+      <div class="bread" style="width:220px">${SVG.home}</div>
+      <b style="font-size:19px;letter-spacing:-.02em;line-height:27px">오늘도 빵끗!</b>
+      <span class="cap">${esc(myName()||'')}${myName()?' 님, ':''}모임의 즐거움만 남도록 함께할게요.</span></div>
+    <div class="quick">
+      <button class="qbtn new" data-act="new"><i>${SVG.plus}</i>새 모임</button>
+      <button class="qbtn" data-act="quick" data-tab2="est"><i>${SVG.doc}</i>정산 결과</button>
+      <button class="qbtn pay" data-act="quick" data-tab2="pay"><i>${SVG.swap}</i>송금 체크</button></div>
+    <div class="sechead"><span class="label">최근 모임</span><button data-nav="mine">모두 보기</button></div>
+    ${list.length?`<div class="glist">${list.slice(0,3).map(gcard).join('')}</div>`:`<div class="homeempty"><b style="font-size:14px">아직 만든 모임이 없어요</b><span class="cap">새 모임을 만들면 여기에 쌓여요.</span></div>`}
+  </section>${nav()}`;
+}
+function rMine(){
+  watchMyMeets();unsubAll();
+  shell.innerHTML=`<section class="view">
+    <header class="hhead"><h1 class="title">내 모임</h1><button class="btn small" data-act="new">+ 새 모임</button></header>
+    ${state.myMeets.length?`<div class="glist">${state.myMeets.map(gcard).join('')}</div>`:'<div class="homeempty"><b style="font-size:14px">아직 만든 모임이 없어요</b></div>'}
+  </section>${nav()}`;
+}
+function rMsgList(){
+  watchMyMeets();unsubAll();
+  shell.innerHTML=`<section class="view">
+    <header class="hhead"><h1 class="title">메시지</h1></header>
+    <p class="subt" style="margin-top:-6px">모임 링크를 다시 보내거나, 정산 현황을 열어 미입금 알림을 보내요.</p>
+    ${state.myMeets.length?state.myMeets.map(m=>`<div class="card" style="gap:10px"><b style="font-size:16px">${esc(titleOf(m))}</b><span class="cap">${esc((m.date||'').replace(/-/g,'.'))} · 결제 ${esc(m.payer||'')}</span>
+      <div class="row2"><button class="btn small line" data-invite="${m.id}">초대 메시지 복사</button><button class="btn small" data-open="${m.id}">정산 현황</button></div></div>`).join(''):'<div class="homeempty"><b style="font-size:14px">메시지를 보낼 모임이 없어요</b></div>'}
+  </section>${nav()}`;
+}
+function meSheet(){
+  const p=state.profile||{};
+  sheet(`<h3>내 계정</h3>
+    <div class="card" style="gap:6px"><b style="font-size:17px">${esc(p.nickname||'')}</b><span class="cap num">고유번호 ${esc(p.code||'')}</span>
+    <span class="cap">${WEB?'모임은 온라인 저장소에 저장돼요. 링크를 아는 사람은 누구나 볼 수 있어요.':Store.mode==='cloud'?'모임은 claude.ai의 이 페이지에 저장돼요. 링크를 받은 참여자도 읽을 수 있어요.':'모임은 이 브라우저에만 저장돼요.'}</span></div>
+    <label class="fl">닉네임 바꾸기<input class="sf" id="meNick" maxlength="12" value="${esc(p.nickname||'')}"></label>
+    <button class="btn" data-ok>저장</button>
+    <button class="btn line" data-close>닫기</button>`,
+  (s,close)=>{s.querySelector('[data-ok]').onclick=()=>{const v=s.querySelector('#meNick').value.trim();if(!v)return;state.profile={...state.profile,nickname:v};Store.saveProfile(state.profile);close();render();toast('닉네임을 바꿨어요')}});
+}
+
+/* ================= 이벤트 ================= */
+shell.addEventListener('input',e=>{const t=e.target;if(state.view==='form'&&t.dataset.f){state.draft[t.dataset.f]=t.dataset.f==='expected'?(parseInt(t.value.replace(/[^0-9]/g,''),10)||0):t.value}});
+shell.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b||b.disabled)return;const d=b.dataset;
+  if(d.nav){if(['home','mine','msglist'].includes(d.nav)&&!state.profile){go('onb1');return}go(d.nav);return}
+  if(d.open){openMeet(d.open,'org');return}
+  if(d.invite){const m=state.myMeets.find(x=>x.id===d.invite);if(m)copy(msgInvite(m),'초대 메시지를 복사했어요');return}
+  if(d.tab){state.tab=d.tab;r07();return}
+  if(d.person){personSheet(d.person);return}
+  if(d.rule){const sel=state.ruleSel,id=d.rule,r=RULES.find(x=>x.id===id),i=sel.indexOf(id);
+    if(i>=0){sel.splice(i,1);toast(`‘${r.name}’ 선택을 뺐어요`)}
+    else{sel.push(id);const clash=id==='r2'?'r3':id==='r3'?'r2':null;
+      if(clash&&sel.includes(clash)){sel.splice(sel.indexOf(clash),1);document.querySelector(`[data-rule="${clash}"]`).setAttribute('aria-pressed','false');toast(`${r.tip} (‘${RULES.find(x=>x.id===clash).name}’와 함께 고를 수 없어요)`)}
+      else toast(r.tip)}
+    b.setAttribute('aria-pressed',String(sel.includes(id)));document.getElementById('ruleCount').textContent=sel.length;return}
+  if(d.itype){state.itemType=d.itype;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));return}
+  if(d.idel){state.draft.items=state.draft.items.filter(i=>i.id!==d.idel);r051();return}
+  if(d.q){const v=JSON.parse(d.v);if(d.multi==='1'){const arr=state.ans[d.q]||(state.ans[d.q]=[]);const i=arr.indexOf(v);if(i>=0)arr.splice(i,1);else arr.push(v);b.setAttribute('aria-pressed',String(i<0))}
+    else{state.ans[d.q]=v;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)))}
+    const er=document.getElementById('qErr');if(er)er.hidden=true;return}
+  switch(d.act){
+    case 'to02':go('onb2');break;
+    case 'to03':go('onb3');break;
+    case 'new':state.ruleSel=null;go('create');break;
+    case 'torules':state.ruleSel=null;go('rules');break;
+    case 'rulecheck':go('rulecheck');break;
+    case 'toform':state.draft=state.draft||{title:'',place:'',date:today(),payer:myName(),account:'',expected:0,items:[]};state.draft.rules=[...state.ruleSel];go('form');setTimeout(()=>document.getElementById('f-title')?.focus(),60);break;
+    case 'toitems':{const dr=state.draft,er=document.getElementById('formErr');const f=m=>{er.hidden=false;er.textContent=m};
+      if(!dr.title.trim())return f('모임 이름을 적어 주세요.');if(!dr.payer.trim())return f('결제한 사람을 적어 주세요.');go('items');break}
+    case 'additem':addItem();break;
+    case 'makemeet':makeMeet();break;
+    case 'makelink':linkSheet(state.meet);break;
+    case 'share':linkSheet(state.meet);break;
+    case 'remind':copy(msgRemind(state.meet,compute(state.meet,state.cks)),'미입금 알림을 복사했어요');break;
+    case 'objection':objectionSheet();break;
+    case 'toggleEst':state.open=!state.open;r07();break;
+    case 'ack':if(state.view==='org'){state.tab='pay';r07();break}
+      if(!myCk()){go('join');break}
+      state.tab='pay';r07();setTimeout(()=>personSheet(myCk().pkey),50);break;
+    case 'copyacct':copy(state.meet.account,'계좌를 복사했어요');break;
+    case 'copyacctnum':copy(acctNum(state.meet.account),'계좌번호를 복사했어요');break;
+    case 'copyamt':{const c=compute(state.meet,state.cks),me=c.ppl.find(x=>x.id===Store.pKey());if(me)copy(String(c.rows[me.id].amount),'금액을 복사했어요');break}
+    case 'copyall':{const m=state.meet,c=compute(m,state.cks),me=c.ppl.find(x=>x.id===Store.pKey());const amt=me&&me.id!==c.payerId?c.rows[me.id].amount:0;
+      copy(`[${m.title||'모임'} 정산]\n받는 분: ${m.payer||'총무'}\n계좌: ${m.account}${amt?`\n보낼 금액: ${won(amt)}원`:`\n1인 예상: ${won(c.nb)}원`}`,'송금 정보를 복사했어요');break}
+    case 'togglesent':{const m=state.meet,c=compute(m,state.cks),me=c.ppl.find(x=>x.id===Store.pKey());if(!me)break;
+      Store.db.doc('checkins/'+m.id+'_'+me.id).update({sent:!me.sent,updatedAt:Date.now()}).then(()=>toast(me.sent?'취소했어요':'송금했다고 알렸어요. 총무가 확인하면 초록색으로 바뀌어요')).catch(()=>toast('저장하지 못했어요'));break}
+    case 'join1':{const n=(state.joinName||document.getElementById('jName').value||'').trim();if(!n){document.getElementById('jErr').hidden=false;document.getElementById('jName').focus();break}
+      state.joinName=n;const me=myCk();state.ans=state.ans||(me?{rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[]}:{rounds:[roundOf(state.meet)],personal:[]});
+      if(questions(state.meet).length)go('join2');else saveCheckin();break}
+    case 'join2':saveCheckin();break;
+    case 'tojoin':go('join');break;
+    case 'demoagain':ssSet('bbk.pkey.demo',rid('p'));state.joinName='';state.ans=null;go('join');break;
+    case 'asowner':try{sessionStorage.removeItem('bbk.pkey.demo')}catch(e){}go('org');break;
+    case 'quick':{const m=state.myMeets[0];if(!m){toast('먼저 새 모임을 만들어 주세요');go('create');break}openMeet(m.id,'org',d.tab2);break}
+    case 'me':meSheet();break;
+    case 'tohome':try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}state.mid=null;go(state.profile?'home':'onb1');break;
+  }
+});
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(h.startsWith('m-')&&h.slice(2)!==state.mid){state.ans=null;openMeet(h.slice(2))}});
+
+/* ================= 시작 ================= */
+(async()=>{
+  await Store.init();
+  state.profile=await Store.loadProfile();
+  const h=location.hash.slice(1);
+  if(h.startsWith('m-')&&h.length>3){state.ans=null;shell.innerHTML='<div class="loading">모임을 불러오는 중…</div>';openMeet(h.slice(2));return}
+  state.view='onb1';render();
+})();
+
+})();
+</script>
+</body></html>
