@@ -980,14 +980,12 @@ function linkSheet(m){
   const local=Store.mode!=='cloud';
   sheet(`<h3>모임 링크가 생겼어요</h3>
     <div class="linkbox">${IC.link}<span class="num">${esc(linkOf(m))}</span></div>
-    <button class="btn kakao" data-copy-invite>초대 메시지 복사하기</button>
-    <button class="btn line" data-copy-link>링크만 복사하기</button>
+    <button class="btn kakao" data-copy-invite>정산 메시지 복사하기</button>
     <div class="cap">${local?'지금은 HTML 파일로 열려 있어서 링크는 이 기기에서만 시연할 수 있어요. 아래 버튼으로 참여자 화면을 열어 보세요.':WEB?'링크를 받은 사람은 로그인 없이 바로 체크인할 수 있어요. 휴대폰(브라우저)마다 따로 기억해요.':'참여자도 claude.ai에 로그인해야 하고, 연희님이 이 페이지 공유 메뉴에서 이메일로 <b>편집자</b> 초대를 해 줘야 체크인을 저장할 수 있어요.'}</div>
     <button class="btn line" data-demo>이 기기에서 참여자 화면 열기</button>
     <button class="btn" data-status>정산 현황 보기</button>`,
   (s,close)=>{
-    s.querySelector('[data-copy-invite]').onclick=()=>copy(msgInvite(m),'초대 메시지를 복사했어요. 단톡방에 붙여 넣어 주세요');
-    s.querySelector('[data-copy-link]').onclick=()=>copy(linkOf(m),'링크를 복사했어요');
+    s.querySelector('[data-copy-invite]').onclick=()=>copy(msgInvite(m),'정산 메시지를 복사했어요. 단톡방에 붙여 넣어 주세요');
     s.querySelector('[data-demo]').onclick=()=>{close();ssSet('bbk.pkey.demo',rid('p'));state.joinName='';openMeet(m.id,'join')};
     s.querySelector('[data-status]').onclick=()=>{close();openMeet(m.id,'org')};
   });
@@ -1200,13 +1198,12 @@ function personSheet(pid){
   sheet(`<h3>${esc(p.name)} · <span class="num">${won(r.amount)}원</span></h3>
     <ul class="why">${r.why.map(x=>`<li>${esc(x)}</li>`).join('')}${noteOf(m,p)?`<li>${esc(noteOf(m,p))}</li>`:''}</ul>
     ${(()=>{const ck=state.cks.find(k=>k.pkey===p.id)||{};const sv=(ck.situ||[]).filter(x=>x!=='none');return sv.length?`<div class="cap note">알려준 상황: ${sv.map(x=>SITU[x]||x).join(' · ')}${ck.afterDue?' (마감 뒤 답변)':''}</div>`:''})()}
-    ${!isPayer&&r.amount&&org&&!p.synthetic?`<button class="btn ${p.paid?'line':''}" data-paid>${p.paid?'받음 확인 취소':'받음 확인'}</button><button class="btn kakao" data-pmsg>개인 메시지 복사</button>`:''}
+    ${!isPayer&&r.amount&&org&&!p.synthetic?`<button class="btn ${p.paid?'line':''}" data-paid>${p.paid?'받음 확인 취소':'받음 확인'}</button>`:''}
     ${!isPayer&&r.amount&&mine?`${m.account?`<div class="acct"><span class="cap">보낼 곳</span><b>${esc(m.account)}</b></div>`:''}<button class="btn ${p.sent?'line':''}" data-sent>${p.sent?'보냈어요 취소':'송금했어요'}</button>`:''}
     <button class="btn line" data-close>닫기</button>`,
   (s,close)=>{
     const pb=s.querySelector('[data-paid]');if(pb)pb.onclick=async()=>{const paid={...(m.paid||{})};if(p.paid)delete paid[p.id];else paid[p.id]=true;
       try{await Store.db.doc('meets/'+m.id).update({paid,updatedAt:Date.now()});toast(p.paid?'받음 확인을 취소했어요':`${p.name} 님 받음 확인`)}catch(e){toast('저장하지 못했어요')}close()};
-    const mb=s.querySelector('[data-pmsg]');if(mb)mb.onclick=()=>copy(msgPerson(m,c,p));
     const sb=s.querySelector('[data-sent]');if(sb)sb.onclick=async()=>{try{await Store.db.doc('checkins/'+m.id+'_'+p.id).update({sent:!p.sent,updatedAt:Date.now()});toast(p.sent?'취소했어요':'송금했다고 알렸어요. 총무가 확인하면 초록색으로 바뀌어요')}catch(e){toast('저장하지 못했어요')}close()};
   });
 }
@@ -1254,9 +1251,9 @@ function rMsgList(){
   watchMyMeets();unsubAll();
   shell.innerHTML=`<section class="view">
     <header class="hhead"><h1 class="title">공유 · 알림</h1></header>
-    <p class="subt" style="margin-top:-6px">단톡방에 모임 링크를 다시 보내거나, 아직 송금하지 않은 사람에게 알림을 보내요.</p>
+    <p class="subt" style="margin-top:-6px">단톡방에 정산 메시지를 다시 보내거나, 아직 송금하지 않은 사람에게 알림을 보내요.</p>
     ${state.myMeets.length?state.myMeets.map(m=>`<div class="card" style="gap:10px"><b style="font-size:16px">${esc(titleOf(m))}</b><span class="cap">${esc((m.date||'').replace(/-/g,'.'))} · 결제 ${esc(m.payer||'')}</span>
-      <div class="row2"><button class="btn small line" data-invite="${m.id}">링크 다시 보내기</button><button class="btn small" data-open="${m.id}" data-tab2="pay">미입금 알림</button></div></div>`).join(''):'<div class="homeempty"><b style="font-size:14px">공유할 모임이 아직 없어요</b></div>'}
+      <div class="row2"><button class="btn small line" data-invite="${m.id}">정산 메시지 복사</button><button class="btn small" data-open="${m.id}" data-tab2="pay">미입금 알림</button></div></div>`).join(''):'<div class="homeempty"><b style="font-size:14px">공유할 모임이 아직 없어요</b></div>'}
   </section>${nav()}`;
 }
 function meSheet(){
@@ -1423,7 +1420,7 @@ shell.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||b.disabled)return;const d=b.dataset;
   if(d.nav){if(['home','mine','msglist'].includes(d.nav)&&!state.profile){go('onb1');return}go(d.nav);return}
   if(d.open){openMeet(d.open,'org',d.tab2);return}
-  if(d.invite){const m=state.myMeets.find(x=>x.id===d.invite);if(m)copy(msgInvite(m),'초대 메시지를 복사했어요');return}
+  if(d.invite){const m=state.myMeets.find(x=>x.id===d.invite);if(m)copy(msgInvite(m),'정산 메시지를 복사했어요');return}
   if(d.tab){state.tab=d.tab;r07();return}
   if(d.person){personSheet(d.person);return}
   if(d.rule){const sel=state.ruleSel,id=d.rule,r=RULES.find(x=>x.id===id),i=sel.indexOf(id);
