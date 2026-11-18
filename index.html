@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#F7F6EB"><meta property="og:title" content="빵끗 · 함께하는 정산"><meta property="og:description" content="모임정산이 도착했어요. 링크를 눌러 체크인해 주세요."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8D%9E%3C/text%3E%3C/svg%3E"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style><script src="vendor/supabase.js"></script><script>window.BBK_SUPA={url:"https://neoisnzhuilcfqrgnewy.supabase.co",key:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5lb2lzbnpodWlsY2ZxcmduZXd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ3NzA5MTUsImV4cCI6MjExMDM0NjkxNX0.JzEnsJ9gOq5gxT2LPBLffIOjhhm5hv1i_BX9OG86BQY"};</script>
 </head><body>
-<title>빵끗 정산</title>
+<title>빵끗 정산 (베타)</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap">
@@ -284,8 +284,20 @@ textarea.sf{height:auto;min-height:144px;padding:14px 16px;font-size:14px;line-h
 .likert button[aria-checked="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
 .lk-ends{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:-2px}
 .qcard.miss{outline:2px solid #D9534F;outline-offset:2px}
+
+.beta-pill{position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);left:50%;transform:translateX(-50%);z-index:60;pointer-events:none;
+  font:700 11px/1 'Noto Sans KR',system-ui,sans-serif;letter-spacing:.04em;padding:5px 10px;border-radius:999px;background:var(--ink);color:#fff;opacity:.88;white-space:nowrap}
+.thumbs{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+.thumb{position:relative;flex:0 0 84px;height:108px;border-radius:12px;overflow:hidden;background:var(--soft);border:1px solid var(--line)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .tb{position:absolute;left:4px;right:4px;bottom:4px;font-size:10px;font-weight:700;text-align:center;border-radius:8px;padding:3px 2px;background:rgba(27,29,31,.78);color:#fff}
+.thumb .tb.done{background:var(--ok)}
+.thumb .xbtn{position:absolute;top:2px;right:2px;width:28px;height:28px;border-radius:14px;background:rgba(255,255,255,.9)}
+.iname-in{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:15px;color:var(--ink);padding:4px 0;border-bottom:1px dashed transparent}
+.iname-in:focus{outline:none;border-bottom-color:var(--sub)}
 </style>
 
+<div class="beta-pill" aria-label="베타 버전">BETA · 베타 버전</div>
 <div class="shell" id="shell"><div class="loading">불러오는 중…</div></div>
 
 <script>
@@ -493,7 +505,8 @@ const SupaDB=(()=>{
     return {where:(f,op,v)=>query(col,[...filters,[f,op,v]]),get:run,
       onSnapshot:(next,err)=>{let alive=true;const f=()=>run().then(r=>{if(alive)next(r)},e=>{if(alive&&err)err(e)});subs.add(f);f();return ()=>{alive=false;subs.delete(f)}}}}
   async function armCounts(meet){const {data,error}=await cli.rpc('bbk_research_arms',{p_meet:meet});if(error)fail(error);return data||{}}
-  return {doc,armCounts,collection:(col)=>({...query(col,[]),doc:(id)=>doc(col+'/'+(id||rid('d')))})};
+  async function receipt(image,mediaType){const {data,error}=await cli.functions.invoke('bbk-receipt',{body:{image,mediaType}});if(error)throw error;return data}
+  return {doc,armCounts,receipt,collection:(col)=>({...query(col,[]),doc:(id)=>doc(col+'/'+(id||rid('d')))})};
 })();
 
 const Store={mode:WEB?'cloud':'local',db:WEB?SupaDB:LocalDB,uid:null,user:null,canWrite:null,sample:null,
@@ -597,7 +610,7 @@ function dueText(m){if(!m||!m.autoNoResp||!m.deadline)return '';if(isClosed(m))r
   return `답변 마감까지 ${h?h+'시간 ':''}${h&&!mm?'':mm+'분'} (${hhmm(m.deadline)})`}
 const titleOf=m=>(m.title||'이름 없는 모임')+(m.place?' · '+m.place:'');
 function msgInvite(m){
-  return `[빵끗] ${m.payer||'총무'}님이 ‘${titleOf(m)}’ 정산을 열었어요.\n아래 링크에서 정산 기준을 확인하고 체크인해 주세요.\n${linkOf(m)}\n\n정산 기준: ${rulesOf(m).map(r=>r.short).join(' · ')||'모두 똑같이 N빵'}${m.autoNoResp&&m.deadline?`\n답변 마감: ${hhmm(m.deadline)} (마감까지 답이 없으면 ‘예외 없음’으로 계산돼요)`:''}`;
+  return `[빵끗 베타] ${m.payer||'총무'}님이 ‘${titleOf(m)}’ 정산을 열었어요.\n아래 링크에서 정산 기준을 확인하고 체크인해 주세요.\n${linkOf(m)}\n\n정산 기준: ${rulesOf(m).map(r=>r.short).join(' · ')||'모두 똑같이 N빵'}${m.autoNoResp&&m.deadline?`\n답변 마감: ${hhmm(m.deadline)} (마감까지 답이 없으면 ‘예외 없음’으로 계산돼요)`:''}`;
 }
 function msgRemind(m,c){
   const left=c.owed.filter(p=>!p.paid);
@@ -770,10 +783,12 @@ function r051(){
     <div style="display:flex;flex-direction:column;gap:6px"><h1 class="title">영수증 항목 추가하기</h1><p class="subt">촬영하거나 사진을 불러오고, 직접 입력해요.</p></div>
     <section class="card"><div><b class="h15">영수증으로 빠르게 추가</b><div class="cap" style="margin-top:6px">영수증 전체가 잘 보이도록 준비해 주세요.</div></div>
       <div class="row2 g10">
-        <label class="tile" for="camIn">${IC.camera}<b>카메라</b><span class="cap">지금 촬영하기</span></label>
-        <label class="tile" for="galIn">${IC.photo}<b>사진</b><span class="cap">갤러리에서 선택</span></label></div>
+        <label class="tile" for="camIn">${IC.camera}<b>카메라</b><span class="cap">${(state.photos||[]).length?'한 장 더 찍기':'지금 촬영하기'}</span></label>
+        <label class="tile" for="galIn">${IC.photo}<b>사진</b><span class="cap">여러 장 선택 가능</span></label></div>
       <input type="file" id="camIn" accept="image/*" capture="environment" hidden>
-      <input type="file" id="galIn" accept="image/*" hidden>
+      <input type="file" id="galIn" accept="image/*" multiple hidden>
+      ${(state.photos||[]).length?`<div class="thumbs">${state.photos.map((ph,i)=>`<div class="thumb"><img src="${ph.url}" alt="영수증 ${i+1}"><span class="tb ${ph.st}">${{wait:'대기 중',reading:'읽는 중…',done:ph.n+'개 추가',fail:'직접 입력'}[ph.st]}</span><button class="xbtn" data-pdel="${ph.id}" aria-label="영수증 ${i+1} 지우기">×</button></div>`).join('')}</div>
+      <div class="cap">영수증이 여러 장이거나 길면 나눠서 찍어도 돼요. 사진을 지우면 그 사진에서 넣은 항목도 함께 빠져요.</div>`:''}
       <div class="cap" id="ocrNote" ${state.ocr?'':'hidden'}>${esc(state.ocr||'')}</div>
     </section>
     <section class="card"><div><b class="h15">직접 입력하기</b><div class="cap" style="margin-top:6px">영수증이 없어도 항목별로 추가할 수 있어요.</div></div>
@@ -785,10 +800,11 @@ function r051(){
     </section>
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px"><b class="h15">추가된 항목 · ${d.items.length}개</b><b class="label num">합계 ${won(Math.max(0,total))}원</b></div>
     ${d.items.length?Object.keys(ITEM_TYPES).filter(k=>d.items.some(i=>(i.type||'common')===k)).map(k=>{const its=d.items.filter(i=>(i.type||'common')===k);const sub=its.reduce((a,i)=>a+(+i.amount||0),0);
-      return `<div class="igroup"><div class="ighead"><span class="badge ${k}">${ITEM_TYPES[k]}</span><span class="cap">${its.length}개</span><b class="num">${k==='discount'?'−':''}${won(sub)}원</b></div><div class="ilist">${its.map(i=>`<div class="irow"><span class="iname">${esc(i.name||'이름 없음')}</span><span class="num iamt">${i.type==='discount'?'−':''}${won(i.amount)}원</span><button class="xbtn" data-idel="${i.id}" aria-label="${esc(i.name)} 삭제">×</button></div>`).join('')}</div></div>`}).join(''):'<div class="ilist"><div class="empty-in">아직 추가한 항목이 없어요.<br>영수증을 불러오거나 직접 추가해 주세요.</div></div>'}
+      return `<div class="igroup"><div class="ighead"><span class="badge ${k}">${ITEM_TYPES[k]}</span><span class="cap">${its.length}개</span><b class="num">${k==='discount'?'−':''}${won(sub)}원</b></div><div class="ilist">${its.map(i=>`<div class="irow"><input class="iname-in" data-iname="${i.id}" value="${esc(i.name||'')}" placeholder="이름 없음" aria-label="항목 이름"><span class="num iamt">${i.type==='discount'?'−':''}${won(i.amount)}원</span><button class="xbtn" data-idel="${i.id}" aria-label="${esc(i.name)} 삭제">×</button></div>`).join('')}</div></div>`}).join(''):'<div class="ilist"><div class="empty-in">아직 추가한 항목이 없어요.<br>영수증을 불러오거나 직접 추가해 주세요.</div></div>'}
     <button class="btn" data-act="makemeet" ${d.items.length?'':'disabled'}>다음 · 체크인 링크 만들기</button>
   </section>`;
-  ['camIn','galIn'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(f)readReceipt(f)}));
+  ['camIn','galIn'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{const fs=[...(e.target.files||[])];e.target.value='';if(fs.length)addPhotos(fs)}));
+  shell.querySelectorAll('[data-iname]').forEach(x=>x.addEventListener('input',()=>{const it=state.draft.items.find(i=>i.id===x.dataset.iname);if(it)it.name=x.value}));
   document.getElementById('iAmt').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addItem()}});
   const DRINK=/소주|맥주|참이슬|처음처럼|진로|새로|카스|테라|켈리|하이네켄|생맥|막걸리|와인|하이볼|사케|위스키|칵테일|양주|소맥|beer|soju|wine/i;
   document.getElementById('iName').addEventListener('input',e=>{if(!DRINK.test(e.target.value)||!types.includes('drink'))return;state.itemType='drink';document.querySelectorAll('[data-itype]').forEach(x=>x.setAttribute('aria-checked',String(x.dataset.itype==='drink')))});
@@ -807,37 +823,90 @@ function addItem(){
   state.itemType='common';
   r051();document.getElementById('iName').focus();
 }
+/* 영수증 사진 여러 장: 한 장씩 차례로 읽어 항목을 더한다.
+   읽는 순서: claude.ai 링크(sample) → 웹 서버(bbk-receipt, Claude) → 휴대폰 안 글자 인식(Tesseract, 대체) */
+function addPhotos(files){
+  state.photos=state.photos||[];
+  files.slice(0,10).forEach(f=>state.photos.push({id:rid('ph'),file:f,url:URL.createObjectURL(f),st:'wait',n:0}));
+  r051();runPhotoQueue();
+}
+let photoBusy=false;
+async function runPhotoQueue(){
+  if(photoBusy)return;photoBusy=true;
+  try{for(;;){const ph=(state.photos||[]).find(x=>x.st==='wait');if(!ph)break;ph.st='reading';sayOcr('영수증을 읽고 있어요… 잠시만 기다려 주세요.');if(state.view==='items')r051();
+      let list=[],why='';
+      try{list=await readReceipt(ph.file)}catch(e){why=e&&e.msg||''}
+      if(!state.photos.includes(ph))continue;
+      const types=itemTypes(state.draft);
+      list=list.map(x=>({name:String(x.name||'').slice(0,40),amount:Math.abs(parseInt(x.amount,10)||0),type:['common','drink','discount'].includes(x.type)?x.type:'common'})).filter(x=>x.amount>0)
+        .filter(x=>x.type!=='discount'||types.includes('discount'));
+      list.forEach(x=>state.draft.items.push({id:rid('i'),...x,src:ph.id}));
+      ph.n=list.length;ph.st=list.length?'done':'fail';
+      sayOcr(list.length?`영수증에서 ${list.length}개 항목을 넣었어요. 이름과 금액이 맞는지 확인해 주세요.`:(why||'이 사진에서는 항목을 찾지 못했어요. 더 밝게 다시 찍거나 직접 입력해 주세요.'));
+      if(state.view==='items')r051()}}
+  finally{photoBusy=false}
+}
+function sayOcr(m){state.ocr=m;const n=document.getElementById('ocrNote');if(n){n.hidden=false;n.textContent=m}}
+async function shrinkImage(file,max=1600){
+  const img=await new Promise((ok,no)=>{const im=new Image();im.onload=()=>ok(im);im.onerror=no;im.src=URL.createObjectURL(file)});
+  const k=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement('canvas');
+  c.width=Math.round(img.naturalWidth*k);c.height=Math.round(img.naturalHeight*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+  return await new Promise(ok=>c.toBlob(ok,'image/jpeg',.85));
+}
+const blobB64=b=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(b)});
 async function readReceipt(file){
-  const note=()=>document.getElementById('ocrNote');
-  const say=m=>{state.ocr=m;const n=note();if(n){n.hidden=false;n.textContent=m}};
-  const s=Store.sample;
-  let lim=null;try{lim=s?await s.limits():null}catch(e){}
-  if(!s||!lim||!lim.images){say(WEB?'사진은 받았어요. 영수증 자동 인식은 준비 중이에요. 아래에 직접 입력해 주세요.':'사진은 받았어요. 영수증 자동 인식은 claude.ai 링크에서만 돼요. 아래에 직접 입력해 주세요.');return}
-  say('영수증을 읽고 있어요… 잠시만 기다려 주세요.');
-  const types=itemTypes(state.draft);
-  try{
-    const arr=await s.json(`이 사진은 한국 식당 영수증이야. 주문 항목을 읽어서 JSON 배열만 답해 줘.
+  const s=Store.sample;let lim=null;try{lim=s?await s.limits():null}catch(e){}
+  if(s&&lim&&lim.images){
+    try{const arr=await s.json(`이 사진은 한국 식당 영수증이야. 주문 항목을 읽어서 JSON 배열만 답해 줘.
 형식: [{"name":"모둠회(대)","amount":68000,"type":"common"}]
 - amount: 그 줄의 합계 금액(원, 정수, 수량×단가가 이미 곱해진 값)
 - type: 소주·맥주·와인·막걸리·하이볼·사케 같은 술은 "drink", 할인·쿠폰 줄은 "discount"(amount는 양수), 나머지는 "common"
 - 합계, 부가세, 봉사료, 카드·승인 정보 줄은 빼
-- 읽을 수 없으면 []`,{images:[file],modelTier:'default'});
-    const list=(Array.isArray(arr)?arr:[]).map(x=>({name:String(x.name||'').slice(0,40),amount:Math.abs(parseInt(x.amount,10)||0),type:['common','drink','discount'].includes(x.type)?x.type:'common'})).filter(x=>x.amount>0)
-      .map(x=>({...x,type:x.type==='drink'&&!types.includes('drink')?'common':x.type})).filter(x=>x.type!=='discount'||types.includes('discount'));
-    if(!list.length){say('영수증에서 항목을 찾지 못했어요. 더 밝게 다시 찍거나 직접 입력해 주세요.');return}
-    list.forEach(x=>state.draft.items.push({id:rid('i'),...x}));
-    state.ocr=`영수증에서 ${list.length}개 항목을 넣었어요. 금액이 맞는지 확인해 주세요.`;r051();
-  }catch(e){
-    const m={not_granted:'Claude 사용을 허락하지 않아서 자동 인식을 할 수 없어요. 직접 입력해 주세요.',rate_limited:'잠시 후 다시 시도해 주세요.',image_rejected:'이 사진은 읽을 수 없어요. 다른 사진을 골라 주세요.',invalid_json:'영수증을 잘 읽지 못했어요. 다시 찍거나 직접 입력해 주세요.'}[e&&e.code];
-    say(m||'영수증을 읽지 못했어요. 직접 입력해 주세요.');
+- 읽을 수 없으면 []`,{images:[file],modelTier:'default'});return Array.isArray(arr)?arr:[]}
+    catch(e){if(e&&e.code==='not_granted')throw {msg:'Claude 사용을 허락하지 않아서 자동 인식을 할 수 없어요. 직접 입력해 주세요.'}}
   }
+  let small=file;try{small=await shrinkImage(file)}catch(e){}
+  if(WEB&&Store.db.receipt){
+    try{const r=await withTimeout(Store.db.receipt(await blobB64(small),'image/jpeg'),45000);if(r&&Array.isArray(r.items))return r.items}catch(e){}
+  }
+  sayOcr('휴대폰에서 글자를 읽고 있어요… 처음 한 번은 30초쯤 걸려요.');
+  return parseReceiptText(await phoneOcr(small));
 }
+let tessWorker=null;
+async function phoneOcr(blob){
+  const V=u=>new URL('vendor/tesseract/'+u,location.href).href;
+  if(!window.Tesseract)await new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=WEB?V('tesseract.min.js'):'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';sc.onload=ok;sc.onerror=()=>no({msg:'글자 인식 도구를 불러오지 못했어요. 인터넷 연결을 확인하거나 직접 입력해 주세요.'});document.head.appendChild(sc)});
+  if(!tessWorker)tessWorker=await window.Tesseract.createWorker('kor+eng',1,WEB?{workerPath:V('worker.min.js'),corePath:V('core'),langPath:V('lang')}:{});
+  const {data}=await tessWorker.recognize(blob);return data.text||'';
+}
+// 영수증 OCR 텍스트 → 항목 (휴리스틱)
+function parseReceiptText(text){
+  const SKIP=/합\s*계|소\s*계|총\s*액|총\s*금액|부가세|부가가치|과세|면세|봉사료|카드|승인|거스름|받을|받은|현금|결제|사업자|대표|전화|tel|주소|일시|테이블|영수증|메뉴명|수량|단가|금액|vat|total|번호|포인트|잔액|할부/i;
+  const DRINK=/소주|맥주|참이슬|처음처럼|진로|새로|카스|테라|켈리|하이네켄|생맥|막걸리|와인|하이볼|사케|위스키|칵테일|양주|소맥|beer|soju|wine|hite|cass|terra/i;
+  const DISC=/할인|쿠폰|에누리|서비스\s*차감/;
+  const out=[];
+  for(let raw of String(text||'').split(/\n/)){
+    const l=raw.replace(/[|_~`'"]/g,' ').replace(/\s+/g,' ').trim();
+    if(l.length<3||SKIP.test(l))continue;
+    const m=l.match(/^(.*?[가-힣A-Za-z].*?)\s+(?:(\d{1,3})\s+)?(?:[\d,.]+\s+)?(-?\d{1,3}(?:[,.]\d{3})+|-?\d{4,7})\s*원?$/);
+    if(!m)continue;
+    let name=m[1].replace(/[^\w가-힣()\s×x*.\-]/g,'').replace(/\s+\d+\s*$/,'').trim();
+    const qty=parseInt(m[2]||'1',10);
+    const amount=Math.abs(parseInt(m[3].replace(/[,.]/g,''),10));
+    if(!name||!amount||amount<500||amount>2000000)continue;
+    if(qty>1&&qty<100)name=`${name} × ${qty}`;
+    const type=DISC.test(name)?'discount':DRINK.test(name)?'drink':'common';
+    out.push({name:name.slice(0,40),amount,type});
+  }
+  return out;
+}
+
 async function makeMeet(){
   const d=state.draft;
   const m={...d,id:d.id||rid('g'),ownerKey:Store.myKey(),round:roundOf(d),paid:{},study:d.study!==false,autoNoResp:true,dueMin:60,deadline:Date.now()+60*60000,createdAt:Date.now(),updatedAt:Date.now()};
   try{await withTimeout(Store.db.doc('meets/'+m.id).set(m))}
   catch(e){toast(e&&e.code==='invalid_argument'?'저장 권한이 없어요. 모임 주인 계정으로 열어 주세요.':'저장하지 못했어요. 잠시 후 다시 눌러 주세요.');return}
-  state.draft=null;state.mid=m.id;state.meet=m;state.ocr='';
+  state.draft=null;state.photos=[];state.mid=m.id;state.meet=m;state.ocr='';
   go('link');
 }
 /* ---------- 06 링크 만들기 ---------- */
@@ -1259,6 +1328,7 @@ shell.addEventListener('click',e=>{
       else toast(r.tip)}
     b.setAttribute('aria-pressed',String(sel.includes(id)));document.getElementById('ruleCount').textContent=sel.length;return}
   if(d.itype){state.itemType=d.itype;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));return}
+  if(d.pdel){const ph=(state.photos||[]).find(x=>x.id===d.pdel);state.photos=state.photos.filter(x=>x.id!==d.pdel);state.draft.items=state.draft.items.filter(i=>i.src!==d.pdel);if(ph)try{URL.revokeObjectURL(ph.url)}catch(e){}r051();return}
   if(d.idel){state.draft.items=state.draft.items.filter(i=>i.id!==d.idel);r051();return}
   if(d.sv){const q=SV.find(x=>x.k===d.sv);const v=q.opts?d.v:+d.v;(state.sv||(state.sv={}))[d.sv]=v;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));b.closest('.qcard').classList.remove('miss');return}
   if(d.due){state.draft.dueMin=+d.due;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));return}
