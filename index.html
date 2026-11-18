@@ -295,6 +295,15 @@ textarea.sf{height:auto;min-height:144px;padding:14px 16px;font-size:14px;line-h
 .thumb .xbtn{position:absolute;top:2px;right:2px;width:28px;height:28px;border-radius:14px;background:rgba(255,255,255,.9)}
 .iname-in{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:15px;color:var(--ink);padding:4px 0;border-bottom:1px dashed transparent}
 .iname-in:focus{outline:none;border-bottom-color:var(--sub)}
+.mlist{display:flex;flex-direction:column;gap:8px}
+.mrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:12px;font:inherit;color:var(--ink);cursor:pointer}
+.mrow[aria-pressed="true"]{border-color:var(--ok);background:var(--ok-soft)}
+.mchk{flex:none;width:22px;height:22px;border-radius:7px;border:2px solid var(--line);display:grid;place-items:center}
+.mrow[aria-pressed="true"] .mchk{background:var(--ok);border-color:var(--ok)}
+.mrow[aria-pressed="true"] .mchk::after{content:"";width:6px;height:11px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.mn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.mn b{font-size:15px;overflow-wrap:anywhere}
+.ma{flex:none;font-weight:700;font-size:15px}
 </style>
 
 <div class="beta-pill" aria-label="베타 버전">BETA · 베타 버전</div>
@@ -414,7 +423,7 @@ const RULES=[
  {id:'r3',name:'술 안 마시면 술값은 빼요',short:'술 안 마시면 술값 제외',lb:'술 안 마시면<br>술값은 빼요',desc:'술값은 술을 마신 사람끼리,<br>음식값은 함께 나눠요.',tip:'술 안 마신 사람은 술값을 빼고 나눠요',d:-.27},
  {id:'r4',name:'늦게 왔다면 참여한 차수만',short:'늦게 왔다면 참여한 차수만',lb:'늦게 왔다면<br>참여한 차수만',desc:'늦게 왔다면<br>참여한 차수부터 나눠요.',tip:'참여자가 체크인할 때 참석한 차수를 골라요',d:-.05},
  {id:'r5',name:'먼저 갔다면 함께한 차수만',short:'먼저 갔다면 함께한 차수만',lb:'먼저 갔다면<br>함께한 차수만',desc:'먼저 갔다면<br>함께한 차수까지만 나눠요.',tip:'참여자가 체크인할 때 참석한 차수를 골라요',d:-.25},
- {id:'r6',name:'개별 메뉴는 먹은 사람끼리',short:'개별 메뉴는 먹은 사람끼리',lb:'개별 메뉴는<br>먹은 사람끼리',desc:'따로 시킨 메뉴는<br>먹은 사람끼리 나눠요.',tip:'영수증 항목을 ‘개별’로 넣으면 먹은 사람만 내요',d:-.38},
+ {id:'r6',name:'먹은 메뉴만 계산해요',short:'먹은 메뉴만 계산',lb:'먹은 메뉴만<br>계산해요',desc:'각자 먹은 메뉴를 고르면<br>그 메뉴값만 나눠 내요.',tip:'참여자가 먹은 메뉴를 직접 골라요. 같은 메뉴를 고른 사람끼리 나눠요',d:-.4},
  {id:'r7',name:'쿠폰 · 할인도 함께 나눠요',short:'쿠폰·할인도 함께',lb:'쿠폰 · 할인도<br>함께 나눠요',desc:'쿠폰·할인 금액도<br>모두에게 똑같이 빼 줘요.',tip:'‘할인’ 항목을 넣으면 모두에게 똑같이 빼 줘요',d:-.19},
  {id:'r8',name:'생일 주인공은 오늘 무료!',short:'생일 주인공은 무료',lb:'생일 주인공은<br>오늘 무료!',desc:'생일 주인공 몫은<br>나머지가 함께 내요.',tip:'생일인 사람 몫은 나머지가 나눠 내요',d:-.33},
  {id:'r9',name:'잔돈은 총무가 부담해요',short:'잔돈은 총무 부담',lb:'잔돈은 총무가<br>부담해요',desc:'100원 아래 잔돈은<br>총무가 부담해요.',tip:'100원 아래 끝자리는 내려서 받고, 차이는 결제자가 내요',d:-.47}
@@ -422,7 +431,7 @@ const RULES=[
 const ruleOn=(m,id)=>(m.rules||[]).includes(id);
 const rulesOf=m=>RULES.filter(r=>ruleOn(m,r.id));
 const ITEM_TYPES={common:'음식',drink:'술',personal:'개별',discount:'할인'};
-function itemTypes(m){const t=['common','drink'];if(ruleOn(m,'r6'))t.push('personal');if(ruleOn(m,'r7'))t.push('discount');return t}
+function itemTypes(m){const t=['common','drink'];if(ruleOn(m,'r7'))t.push('discount');return t}
 const roundOf=m=>{const x=/(\d)\s*차/.exec(m.place||'');return x?+x[1]:1};
 
 /* ================= 유틸 ================= */
@@ -563,17 +572,17 @@ function compute(m,cks){
   const out=p=>p.status==='late'||p.status==='early';
   const free=p=>r8&&p.status==='bday';
   const active=ppl.filter(p=>!out(p)), sharers=active.filter(p=>!free(p));
-  let common=0,drink=0,discount=0,personalTotal=0,hadDrink=false;const pers={};
+  let common=0,drink=0,discount=0,personalTotal=0,hadDrink=false;const pers={},unpicked=[];
   (m.items||[]).forEach(i=>{const a=Math.abs(+i.amount||0);if(!a)return;let t=i.type||'common';
     if(t==='drink')hadDrink=true;
-    if(t==='personal'&&!r6)t='common';if(t==='discount'&&!r7)t='none';
+    if(r6&&t!=='discount')t='personal';else if(t==='personal')t='common';if(t==='discount'&&!r7)t='none';
     if(t==='common')common+=a;else if(t==='drink')drink+=a;else if(t==='discount')discount+=a;
     else if(t==='personal'){const eaters=sharers.filter(p=>p.personal.includes(i.id));
-      if(eaters.length){eaters.forEach(p=>(pers[p.id]=pers[p.id]||[]).push({name:i.name||'개별 메뉴',a:a/eaters.length}));personalTotal+=a}else common+=a}});
+      if(eaters.length){eaters.forEach(p=>(pers[p.id]=pers[p.id]||[]).push({name:i.name||'메뉴',total:a,n:eaters.length,a:a/eaters.length}));personalTotal+=a}else{common+=a;unpicked.push(i.name||'메뉴')}}});
   const total=Math.max(0,common+drink+personalTotal-discount);
   const drinkers=r3?sharers.filter(p=>p.status!=='nodrink'):sharers;
   const rnd=v=>r9?Math.floor(v/100)*100:Math.ceil(v/100)*100;
-  const foodLabel='음식';
+  const foodLabel=r6?'아직 아무도 고르지 않은 메뉴':'음식';
   const rows={};
   ppl.forEach(p=>{
     if(out(p)){rows[p.id]={amount:0,exact:0,why:[`이번 ${roundOf(m)}차에 없어서 이 정산에서 빠져요`]};return}
@@ -583,7 +592,8 @@ function compute(m,cks){
     const why=[];
     if(common>0)why.push(`${foodLabel} ${won(common)}원 ÷ ${sharers.length}명 = ${won(c)}원`);
     if(drink>0)why.push(drinkers.includes(p)?`술 ${won(drink)}원 ÷ ${drinkers.length}명 = ${won(d)}원`:'술값은 빠져요');
-    (pers[p.id]||[]).forEach(x=>why.push(`개별 메뉴 ${x.name} ${won(x.a)}원`));
+    (pers[p.id]||[]).forEach(x=>why.push(x.n>1?`${x.name} ${won(x.total)}원 ÷ ${x.n}명 = ${won(x.a)}원`:`${x.name} ${won(x.total)}원 (지금은 나만 골랐어요)`));
+    if(r6&&!(pers[p.id]||[]).length)why.push('아직 고른 메뉴가 없어요');
     if(discount)why.push(`할인 −${won(discount)}원 ÷ ${sharers.length}명 = −${won(di)}원`);
     rows[p.id]={exact:c+d+pe-di,why};
   });
@@ -811,7 +821,7 @@ function r051(){
   document.getElementById('iName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('iAmt').focus()}});
 }
 function typeHint(m){
-  const h=[ruleOn(m,'r3')&&!ruleOn(m,'r2')?'‘음식’은 모두, ‘술’은 술 마신 사람끼리':'‘음식’과 ‘술’은 따로 적고 모두 함께'];if(ruleOn(m,'r6'))h.push('‘개별’은 먹은 사람만');if(ruleOn(m,'r7'))h.push('‘할인’은 모두에게 똑같이 빼서');
+  let h=[ruleOn(m,'r3')&&!ruleOn(m,'r2')?'‘음식’은 모두, ‘술’은 술 마신 사람끼리':'‘음식’과 ‘술’은 따로 적고 모두 함께'];if(ruleOn(m,'r6'))h=['참여자가 먹은 메뉴를 직접 골라서, 메뉴마다 고른 사람끼리'];if(ruleOn(m,'r7'))h.push('‘할인’은 모두에게 똑같이 빼서');
   return h.join(', ')+' 나눠요. 술 이름을 적으면 ‘술’로 자동 선택돼요.';
 }
 function addItem(){
@@ -996,10 +1006,10 @@ function rJoin(){
 function questions(m){
   const q=[];
   if(ruleOn(m,'r1')||ruleOn(m,'r4')||ruleOn(m,'r5'))q.push({k:'rounds',bread:0,t:'몇 차에 참석하고 계신가요?',multi:true,opts:[[1,'1차'],[2,'2차'],[3,'3차']],hint:`이 정산은 ${roundOf(m)}차 비용이에요. 참석한 차수를 모두 골라 주세요.`});
-  if(ruleOn(m,'r3')&&!ruleOn(m,'r2'))q.push({k:'drink',bread:2,t:'술을 마시는 분이신가요?',opts:[[true,'네, 마셔요'],[false,'아니요']]});
+  if(ruleOn(m,'r3')&&!ruleOn(m,'r2')&&!ruleOn(m,'r6'))q.push({k:'drink',bread:2,t:'술을 마시는 분이신가요?',opts:[[true,'네, 마셔요'],[false,'아니요']]});
   if(ruleOn(m,'r8'))q.push({k:'bday',bread:7,t:'오늘 생일이신가요?',opts:[[true,'네, 생일이에요'],[false,'아니요']]});
-  const pers=(m.items||[]).filter(i=>i.type==='personal');
-  if(ruleOn(m,'r6')&&pers.length)q.push({k:'personal',bread:5,t:'따로 드신 메뉴가 있나요?',multi:true,opts:pers.map(i=>[i.id,`${i.name} ${won(i.amount)}원`]),hint:'드신 메뉴를 모두 골라 주세요. 없으면 그냥 넘어가요.'});
+  const menu=(m.items||[]).filter(i=>i.type!=='discount');
+  if(ruleOn(m,'r6')&&menu.length)q.push({k:'personal',menu:true,bread:5,t:'내가 먹은 메뉴를 모두 골라 주세요',multi:true,opts:menu.map(i=>[i.id,i.name||'메뉴',i.amount,i.type]),hint:'같은 메뉴를 고른 사람끼리 그 메뉴값을 나눠요. 함께 먹은 메뉴도 골라 주세요.'});
   return q;
 }
 function rJoin2(){
@@ -1008,7 +1018,7 @@ function rJoin2(){
     ${joinHead()}
     <p class="subt" style="margin-top:-6px">${after?'오늘 나에게 해당하는 상황을 알려주세요. 금액을 다시 계산해요.':'내 상황을 알려주세요. 이걸로 내 금액이 계산돼요.'}</p>
     ${dueText(m)&&!isClosed(m)?`<div class="cap due">${dueText(m)}</div>`:''}
-    ${qs.map(q=>`<div class="qcard"><div class="qhead"><span class="ri"><span class="ic">${BREAD[q.bread]}</span></span><b>${q.t}</b></div>
+    ${qs.map(q=>q.menu?menuPick(m,q,a):`<div class="qcard"><div class="qhead"><span class="ri"><span class="ic">${BREAD[q.bread]}</span></span><b>${q.t}</b></div>
       ${q.hint?`<div class="cap">${q.hint}</div>`:''}
       <div class="chips" role="${q.multi?'group':'radiogroup'}" aria-label="${q.t}">${q.opts.map(([v,l])=>{const on=q.multi?(a[q.k]||[]).includes(v):a[q.k]===v;return `<button class="chip" ${q.multi?'aria-pressed':'role="radio" aria-checked'}="${on}" data-q="${q.k}" data-v='${JSON.stringify(v)}' data-multi="${q.multi?1:0}">${esc(l)}</button>`}).join('')}</div></div>`).join('')}
     <div class="grow"></div>
@@ -1017,11 +1027,20 @@ function rJoin2(){
     <button class="textlink" data-act="tojoin">‹ 정산 기준 다시 보기</button>
   </section>`;
 }
+function menuPick(m,q,a){
+  const mine=a.personal||[];const others=state.cks.filter(c=>c.pkey!==Store.pKey());
+  const cnt=id=>others.filter(c=>(c.personal||[]).includes(id)).length+(mine.includes(id)?1:0);
+  return `<div class="qcard"><div class="qhead"><span class="ri"><span class="ic">${BREAD[q.bread]}</span></span><b>${q.t}</b></div>
+    <div class="cap">${q.hint}</div>
+    <div class="mlist" role="group" aria-label="${q.t}">${q.opts.map(([id,name,amt,type])=>{const on=mine.includes(id);const n=cnt(id);
+      return `<button class="mrow" aria-pressed="${on}" data-q="personal" data-v='${JSON.stringify(id)}' data-multi="1"><span class="mchk" aria-hidden="true"></span><span class="mn"><b>${esc(name)}</b><span class="cap">${type==='drink'?'술 · ':''}${n?`${n}명이 골랐어요`:'아직 아무도 안 골랐어요'}</span></span><span class="num ma">${won(amt)}원</span></button>`}).join('')}</div>
+    <div class="cap" id="menuSel">${mine.length?`${mine.length}개 골랐어요`:'하나 이상 골라 주세요'}</div></div>`;
+}
 async function saveCheckin(base){
   const m=state.meet,qs=questions(m),a=state.ans;
   if(!base&&isClosed(m)){toast('답변이 마감되었어요');go(myCk()?'me':'join');return}
-  const miss=base?null:qs.find(q=>!q.multi&&a[q.k]===undefined)||qs.find(q=>q.k==='rounds'&&!(a.rounds||[]).length);
-  if(miss){const e=document.getElementById('qErr');e.hidden=false;e.textContent=`‘${miss.t}’에 답해 주세요.`;return}
+  const miss=base?null:qs.find(q=>!q.multi&&a[q.k]===undefined)||qs.find(q=>q.k==='rounds'&&!(a.rounds||[]).length)||qs.find(q=>q.menu&&!(a.personal||[]).length);
+  if(miss){const e=document.getElementById('qErr');e.hidden=false;e.textContent=miss.menu?'먹은 메뉴를 하나 이상 골라 주세요.':`‘${miss.t}’에 답해 주세요.`;return}
   const pkey=Store.pKey();const old=myCk()||{};
   const doc={...old,meetId:m.id,pkey,name:state.joinName.trim(),rounds:a.rounds||[],drink:a.drink!==undefined?a.drink:true,bday:!!a.bday,personal:a.personal||[],at:old.at||Date.now(),updatedAt:Date.now()};
   try{await withTimeout(Store.db.doc('checkins/'+m.id+'_'+pkey).set(doc))}
@@ -1054,7 +1073,7 @@ function r07(){
     if(mine&&R){if(R.amountFirst==null){R.amountFirst=amt;Study.log('amount_seen',amt)}if(R.excDone&&R.amountAfterExc==null){R.amountAfterExc=amt;Study.log('amount_after_exc',amt)}}
     const changed=mine&&R&&R.arm==='B'&&R.excDone&&R.amountFirst!=null&&R.amountFirst!==amt;
     const detail=mine?c.rows[meP.id].why.map(x=>`<li>${esc(x)}</li>`).join('')
-      :`<li>총 ${won(c.total)}원 (${esc(c.foodLabel)} ${won(c.common)}원${c.drink?` · 술 ${won(c.drink)}원`:''}${c.personalTotal?` · 개별 ${won(c.personalTotal)}원`:''}${c.discount?` · 할인 −${won(c.discount)}원`:''})</li><li>${exp?`모임 인원 ${exp}명`:`체크인 ${Math.max(1,c.ppl.length)}명`} 기준 N빵이에요. 정산 기준에 따라 사람마다 달라질 수 있어요.</li>`;
+      :`<li>총 ${won(c.total)}원 (${esc(c.foodLabel)} ${won(c.common)}원${c.drink?` · 술 ${won(c.drink)}원`:''}${c.personalTotal?` · ${ruleOn(m,'r6')?'고른 메뉴':'개별'} ${won(c.personalTotal)}원`:''}${c.discount?` · 할인 −${won(c.discount)}원`:''})</li><li>${exp?`모임 인원 ${exp}명`:`체크인 ${Math.max(1,c.ppl.length)}명`} 기준 N빵이에요. 정산 기준에 따라 사람마다 달라질 수 있어요.</li>`;
     body=`<button class="estcard" data-act="toggleEst" aria-expanded="${state.open}"><span class="el">${IC.down} ${mine?'내 예상 정산 금액':'예상 1인당 정산 금액'}</span><span class="ea num">${won(amt)}원</span></button>
       ${state.open?`<ul class="why">${detail}</ul>`:''}
       ${!mine&&!org?'<div class="cap">아직 체크인하지 않았어요. 체크인하면 내 금액이 보여요.</div>':''}
@@ -1323,9 +1342,9 @@ shell.addEventListener('click',e=>{
   if(d.person){personSheet(d.person);return}
   if(d.rule){const sel=state.ruleSel,id=d.rule,r=RULES.find(x=>x.id===id),i=sel.indexOf(id);
     if(i>=0){sel.splice(i,1);toast(`‘${r.name}’ 선택을 뺐어요`)}
-    else{sel.push(id);const clash=id==='r2'?'r3':id==='r3'?'r2':null;
-      if(clash&&sel.includes(clash)){sel.splice(sel.indexOf(clash),1);document.querySelector(`[data-rule="${clash}"]`).setAttribute('aria-pressed','false');toast(`${r.tip} (‘${RULES.find(x=>x.id===clash).name}’와 함께 고를 수 없어요)`)}
-      else toast(r.tip)}
+    else{sel.push(id);const CL={r2:['r3','r6'],r3:['r2','r6'],r6:['r2','r3']};const gone=(CL[id]||[]).filter(x=>sel.includes(x));
+      gone.forEach(x=>{sel.splice(sel.indexOf(x),1);const el=document.querySelector(`[data-rule="${x}"]`);if(el)el.setAttribute('aria-pressed','false')});
+      toast(gone.length?`${r.tip} (‘${gone.map(x=>RULES.find(y=>y.id===x).name).join('’, ‘')}’와 함께 고를 수 없어서 뺐어요)`:r.tip)}
     b.setAttribute('aria-pressed',String(sel.includes(id)));document.getElementById('ruleCount').textContent=sel.length;return}
   if(d.itype){state.itemType=d.itype;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));return}
   if(d.pdel){const ph=(state.photos||[]).find(x=>x.id===d.pdel);state.photos=state.photos.filter(x=>x.id!==d.pdel);state.draft.items=state.draft.items.filter(i=>i.src!==d.pdel);if(ph)try{URL.revokeObjectURL(ph.url)}catch(e){}r051();return}
@@ -1334,6 +1353,7 @@ shell.addEventListener('click',e=>{
   if(d.due){state.draft.dueMin=+d.due;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));return}
   if(d.q){const v=JSON.parse(d.v);if(d.multi==='1'){const arr=state.ans[d.q]||(state.ans[d.q]=[]);const i=arr.indexOf(v);if(i>=0)arr.splice(i,1);else arr.push(v);b.setAttribute('aria-pressed',String(i<0))}
     else{state.ans[d.q]=v;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)))}
+    if(d.q==='personal'){const y=window.scrollY;rJoin2();window.scrollTo(0,y);return}
     const er=document.getElementById('qErr');if(er)er.hidden=true;return}
   switch(d.act){
     case 'to02':go('onb2');break;
