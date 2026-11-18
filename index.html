@@ -349,6 +349,7 @@ textarea.sf{height:auto;min-height:144px;padding:14px 16px;font-size:14px;line-h
 .sheet .rcpt{margin-top:4px}
 .rl-n{display:inline}
 .rc-tag{font-style:normal;font-size:11px;color:#686C70;margin-left:6px;font-weight:500}
+.svprog{margin-left:auto;color:var(--ok)!important;font-variant-numeric:tabular-nums}
 </style>
 
 <div class="beta-pill" aria-label="베타 버전">BETA · 베타 버전</div>
@@ -1136,9 +1137,10 @@ function r07(){
       <details class="rdet"><summary>${esc(m.payer||'총무')}님이 정한 정산 기준 · ${rulesOf(m).length}개 <span class="cap">${rulesOf(m).map(r=>r.short).join(' · ')||'모두 똑같이 N빵'}</span></summary><div class="rcards">${ruleCards(rulesOf(m))}</div></details>
       <div class="grow"></div>
       ${mine&&!bPending&&!isClosed(m)&&questions(m).length?'<button class="textlink u" data-act="editans">내 답변 고치기</button>':''}
-      ${bPending?'<button class="btn" data-act="bexc">다음 · 내 상황 알려주기</button>':mine&&R&&!R.survey?'<button class="btn" data-act="ack">확인했어요 · 짧은 설문으로</button>':mine&&c.rows[meP.id].amount&&meP.id!==c.payerId?`<button class="btn" data-act="topay">${meP.sent?'송금 현황 보기':`송금하러 가기 · ${won(c.rows[meP.id].amount)}원`}</button>`:'<button class="btn" data-act="ack">확인했어요</button>'}`;
+      ${bPending?'<button class="btn" data-act="bexc">다음 · 내 상황 알려주기</button>':mine&&c.rows[meP.id].amount&&meP.id!==c.payerId?`<button class="btn" data-act="ack">${meP.sent?'송금 현황 보기':`확인했어요 · 송금하러 가기 ${won(c.rows[meP.id].amount)}원`}</button>`:`<button class="btn" data-act="ack">${mine&&R&&!R.survey?'확인했어요 · 마지막 설문으로':'확인했어요'}</button>`}`;
   }else{
-    const myAmt=!org&&meP&&meP.id!==c.payerId?c.rows[meP.id].amount:0;
+    const myAmt=!org&&meP&&meP.id!==c.payerId?c.rows[meP.id].amount:0;const R2=Study.active(m)?Study.R:null;
+    if(myAmt&&R2&&!R2.ev.some(x=>x.e==='remit_view'))Study.log('remit_view',myAmt);
     body=`${!org?payInfo(m,c,org,meP):''}<div class="plist">${c.ppl.map(p=>{const r=c.rows[p.id];const isPayer=p.id===c.payerId;const note=isPayer?'결제했어요':noteOf(m,p);
       const icon=isPayer||!r.amount?'<span class="sicon"></span>':p.paid?`<span class="sicon" title="받음 확인">${IC.paid}</span>`:p.sent?`<span class="sicon" title="보냈어요">${IC.sent}</span>`:`<span class="sicon" title="아직 안 보냄">${IC.unpaid}</span>`;
       return `<button class="pcard" data-person="${esc(p.id)}">${icon}<span class="pc"><span class="pn"><b>${esc(p.name)}${p.id===(me&&me.pkey)?' (나)':''}</b>${note?`<span>${esc(note)}</span>`:''}</span><span class="pa num">${won(r.amount)}원</span></span><span class="pch">${IC.chev}</span></button>`}).join('')}</div>
@@ -1147,7 +1149,7 @@ function r07(){
       <div class="grow"></div>
       ${!org&&!me?'<button class="btn" data-act="tojoin">체크인하러 가기</button>':''}
       ${myAmt?`<div class="paybar ${meP.sent?'done':''}"><div class="pb-t"><span class="cap">${esc(m.payer||'총무')}님께 보낼 금액</span><b class="num">${won(myAmt)}원</b></div>
-        ${meP.sent?`<button class="btn line" data-act="togglesent">✓ 보냈어요 · 취소</button>`:`<button class="btn" data-act="togglesent">송금했어요</button>`}</div>`:''}`;
+        ${meP.sent?(R2&&!R2.survey?`<button class="btn" data-act="tosurvey">마지막 설문하기</button>`:`<button class="btn line" data-act="togglesent">✓ 보냈어요 · 취소</button>`):`<button class="btn" data-act="togglesent">송금했어요</button>`}</div>`:''}`;
   }
   shell.innerHTML=`<section class="view">${head}${body}
     ${Store.mode!=='cloud'&&!org?'<button class="textlink u" data-act="demoagain">다른 사람으로 체크인하기 (시연)</button>':''}
@@ -1326,11 +1328,11 @@ function rConsent(){
 const S5=['전혀 아니다','아니다','보통','그렇다','매우 그렇다'];
 const SV=[
   {sec:'금액에 대해'},
-  {k:'D1',t:'내 정산 금액은 내가 먹고 마신 것을 잘 반영한다.'},
-  {k:'D2',t:'내 정산 금액은 공평하다.'},
-  {k:'D3',t:'다른 사람들의 금액과 비교해 내 금액은 적절하다.'},
-  {k:'N1',t:'나는 이 금액을 이의 없이 받아들일 수 있다.'},
-  {k:'N2',t:'이 금액이라면 바로 송금하겠다.'},
+  {k:'D1',t:'내 정산 금액은 내가 먹고 마신 것을 잘 반영했다.'},
+  {k:'D2',t:'내 정산 금액은 공평했다.'},
+  {k:'D3',t:'다른 사람들의 금액과 비교해 내 금액은 적절했다.'},
+  {k:'N1',t:'나는 이 금액을 이의 없이 받아들일 수 있었다.'},
+  {k:'N2',t:'금액을 보고 나서 바로 송금하기까지 망설임이 없었다.'},
   {sec:'정산 과정에 대해'},
   {k:'P1',t:'정산 과정에서 내 상황을 말할 기회가 충분했다.'},
   {k:'P2',t:'정산 기준이 모든 사람에게 똑같이 적용되었다.'},
@@ -1352,9 +1354,9 @@ function rSurvey(){
   if(!Study.R.ev.some(x=>x.e==='survey_open'))Study.log('survey_open');
   let n=0;
   shell.innerHTML=`<section class="view">
-    <div class="toprow"><span class="label" style="color:var(--sub)">베타 테스트 설문 · 약 3분</span></div>
-    <h1 class="title" style="font-size:24px;line-height:34px">마지막으로,<br>오늘 정산은 어땠나요?</h1>
-    <p class="cap" style="margin-top:-8px">정답은 없어요. 느낀 그대로 골라 주세요.</p>
+    <div class="toprow"><span class="label" style="color:var(--sub)">베타 테스트 설문</span><span class="label svprog" id="svProg"></span></div>
+    <h1 class="title" style="font-size:24px;line-height:34px">정산이 끝났어요.<br>마지막으로 2~3분만!</h1>
+    <p class="cap" style="margin-top:-8px">연구에 큰 도움이 돼요. 정답은 없으니 느낀 그대로 골라 주세요.</p>
     ${SV.map(q=>{
       if(q.sec)return `<div class="label svsec">${q.sec}</div>`;
       n++;
@@ -1369,7 +1371,10 @@ function rSurvey(){
     <button class="btn" data-act="svsubmit">설문 제출하기</button>
   </section>`;
   shell.querySelectorAll('[data-svt]').forEach(t=>t.addEventListener('input',()=>{a[t.dataset.svt]=t.value}));
+  svProgress();
 }
+function svProgress(){const a=state.sv||{};const req=SV.filter(q=>q.k&&!q.text);const done=req.filter(q=>a[q.k]!==undefined&&a[q.k]!=='').length;
+  const el=document.getElementById('svProg');if(el)el.textContent=`${done} / ${req.length}`;}
 function svSubmit(){
   const a=state.sv||{};const miss=SV.find(q=>q.k&&!q.text&&(a[q.k]===undefined||a[q.k]===''));
   if(miss){const e=document.getElementById('svErr');e.hidden=false;e.textContent='아직 답하지 않은 문항이 있어요.';const el=document.getElementById('sv-'+miss.k);if(el){el.classList.add('miss');el.scrollIntoView({behavior:'smooth',block:'center'})}return}
@@ -1381,9 +1386,9 @@ function rThanks(){
     <div style="height:clamp(16px,10vh,100px)"></div>
     <div class="bread" style="width:min(240px,64vw)">${SVG.happy}</div>
     <h1 class="h1" style="margin-top:24px">참여해 주셔서<br>고마워요!</h1>
-    <p class="lead" style="margin-top:12px">이제 송금만 남았어요.</p>
+    <p class="lead" style="margin-top:12px">오늘 정산이 모두 끝났어요.</p>
     <div class="grow"></div>
-    <button class="btn" data-act="topay">송금 정보 보기</button>
+    <button class="btn" data-act="topay">내 정산 다시 보기</button>
   </section>`;
 }
 
@@ -1394,7 +1399,7 @@ function researchRows(rs,cks,m){
   const sec=(a,b)=>a&&b?Math.round((b-a)/1000):'';
   const cols=['meet_id','meet_title','meet_date','meet_rules','meet_auto_noresp','meet_due_min','meet_expected','meet_n_checkins','pid','arm','consent','device','completed_survey','n_checkin_saves','n_edits_after_exc','n_est_open','n_answer_edit_open',
     'ck_situ','ck_after_due','ck_drink','ck_rounds','ck_bday','ck_personal_n','amount_first_seen','amount_after_exc','amount_at_ack','amount_now',
-    'sec_consent_to_first_amount','sec_on_exception_screen','sec_consent_to_ack','sec_consent_to_survey_end',...SV.filter(q=>q.k).map(q=>q.k),'consent_at'];
+    'sec_consent_to_first_amount','sec_on_exception_screen','sec_consent_to_ack','reached_remit','did_remit','sec_ack_to_remit','sec_consent_to_survey_end',...SV.filter(q=>q.k).map(q=>q.k),'consent_at'];
   const rows=rs.sort((a,b)=>(a.consentAt||0)-(b.consentAt||0)).map((R,i)=>{
     const ck=cks.find(x=>x.pkey===R.pkey)||{};const ev=R.ev||[];
     const saves=ev.filter(x=>x.e==='checkin_saved');const excSaves=saves.filter(x=>x.v&&x.v.exc);
@@ -1406,7 +1411,9 @@ function researchRows(rs,cks,m){
       meet_id:m.id,meet_title:m.title||'',meet_date:m.date||'',meet_rules:(m.rules||[]).join('|'),meet_auto_noresp:m.autoNoResp?1:0,meet_due_min:m.dueMin||'',meet_expected:m.expected||'',meet_n_checkins:cks.length,
       ck_situ:(ck.situ||[]).join('|'),ck_after_due:ck.afterDue?1:0,ck_drink:ck.drink===undefined?'':(ck.drink?1:0),ck_rounds:(ck.rounds||[]).join('|'),ck_bday:ck.bday?1:0,ck_personal_n:(ck.personal||[]).length,
       amount_first_seen:R.amountFirst??'',amount_after_exc:R.amountAfterExc??'',amount_at_ack:R.amountAtAck??'',amount_now:c.rows[R.pkey]?c.rows[R.pkey].amount:'',
-      sec_consent_to_first_amount:sec(R.consentAt,first(R,'amount_seen')),sec_on_exception_screen:sec(tJ2,tExc),sec_consent_to_ack:sec(R.consentAt,first(R,'ack')),sec_consent_to_survey_end:sec(R.consentAt,first(R,'survey_submit')),
+      sec_consent_to_first_amount:sec(R.consentAt,first(R,'amount_seen')),sec_on_exception_screen:sec(tJ2,tExc),sec_consent_to_ack:sec(R.consentAt,first(R,'ack')),
+      reached_remit:R.amountAtAck===0?'':ev.some(x=>x.e==='remit_view')?1:0,did_remit:R.amountAtAck===0?'':(()=>{const sv=ev.filter(x=>x.e==='sent');return sv.length?(sv[sv.length-1].v?1:0):(ck.sent?1:0)})(),
+      sec_ack_to_remit:sec(first(R,'ack'),first(R,'sent',v=>v.v===1)),sec_consent_to_survey_end:sec(R.consentAt,first(R,'survey_submit')),
       consent_at:R.consentAt?new Date(R.consentAt).toISOString():''};
     SV.filter(q=>q.k).forEach(q=>{row[q.k]=sv[q.k]??''});
     return row});
@@ -1432,7 +1439,7 @@ shell.addEventListener('click',e=>{
   if(d.itype){state.itemType=d.itype;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));return}
   if(d.pdel){const ph=(state.photos||[]).find(x=>x.id===d.pdel);state.photos=state.photos.filter(x=>x.id!==d.pdel);state.draft.items=state.draft.items.filter(i=>i.src!==d.pdel);if(ph)try{URL.revokeObjectURL(ph.url)}catch(e){}r051();return}
   if(d.idel){state.draft.items=state.draft.items.filter(i=>i.id!==d.idel);r051();return}
-  if(d.sv){const q=SV.find(x=>x.k===d.sv);const v=q.opts?d.v:+d.v;(state.sv||(state.sv={}))[d.sv]=v;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));b.closest('.qcard').classList.remove('miss');return}
+  if(d.sv){const q=SV.find(x=>x.k===d.sv);const v=q.opts?d.v:+d.v;(state.sv||(state.sv={}))[d.sv]=v;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));b.closest('.qcard').classList.remove('miss');svProgress();return}
   if(d.due){state.draft.dueMin=+d.due;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));return}
   if(d.q){const v=JSON.parse(d.v);if(d.multi==='1'){const arr=state.ans[d.q]||(state.ans[d.q]=[]);const i=arr.indexOf(v);if(i>=0)arr.splice(i,1);else arr.push(v);b.setAttribute('aria-pressed',String(i<0))}
     else{state.ans[d.q]=v;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)))}
@@ -1459,16 +1466,19 @@ shell.addEventListener('click',e=>{
     case 'toggleEst':state.open=!state.open;if(state.open)Study.log('est_open');r07();break;
     case 'ack':if(state.view==='org'){state.tab='pay';r07();break}
       if(!myCk()){go('join');break}
-      if(Study.active(state.meet)&&!Study.R.survey){const c=compute(state.meet,state.cks),me=myCk();const amt=c.rows[me.pkey]?c.rows[me.pkey].amount:null;
-        if(Study.R.amountAtAck==null)Study.R.amountAtAck=amt;Study.log('ack',amt);go('survey');break}
-      state.tab='pay';r07();setTimeout(()=>personSheet(myCk().pkey),50);break;
+      {const c=compute(state.meet,state.cks),me=myCk();const amt=c.rows[me.pkey]?c.rows[me.pkey].amount:0;const owes=amt>0&&me.pkey!==c.payerId;
+        if(Study.active(state.meet)){if(Study.R.amountAtAck==null)Study.R.amountAtAck=amt;if(!Study.R.ev.some(x=>x.e==='ack'))Study.log('ack',amt)}
+        if(!owes&&Study.active(state.meet)&&!Study.R.survey){go('survey');break}
+        state.tab='pay';r07();window.scrollTo(0,0)}break;
     case 'copyacct':copy(state.meet.account,'계좌를 복사했어요');break;
     case 'copyacctnum':copy(acctNum(state.meet.account),'계좌번호를 복사했어요');break;
     case 'copyamt':{const c=compute(state.meet,state.cks),me=c.ppl.find(x=>x.id===Store.pKey());if(me)copy(String(c.rows[me.id].amount),'금액을 복사했어요');break}
     case 'copyall':{const m=state.meet,c=compute(m,state.cks),me=c.ppl.find(x=>x.id===Store.pKey());const amt=me&&me.id!==c.payerId?c.rows[me.id].amount:0;
       copy(`[${m.title||'모임'} 정산]\n받는 분: ${m.payer||'총무'}\n계좌: ${m.account}${amt?`\n보낼 금액: ${won(amt)}원`:`\n1인 예상: ${won(c.nb)}원`}`,'송금 정보를 복사했어요');break}
     case 'togglesent':{const m=state.meet,c=compute(m,state.cks),me=c.ppl.find(x=>x.id===Store.pKey());if(!me)break;
-      Study.log('sent',me.sent?0:1);Store.db.doc('checkins/'+m.id+'_'+me.id).update({sent:!me.sent,updatedAt:Date.now()}).then(()=>toast(me.sent?'취소했어요':'송금했다고 총무님께 알렸어요!')).catch(()=>toast('저장하지 못했어요'));break}
+      Study.log('sent',me.sent?0:1);Store.db.doc('checkins/'+m.id+'_'+me.id).update({sent:!me.sent,updatedAt:Date.now()}).then(()=>{toast(me.sent?'취소했어요':'송금했다고 총무님께 알렸어요!');
+        if(!me.sent&&Study.active(m)&&!Study.R.survey)setTimeout(()=>go('survey'),700)}).catch(()=>toast('저장하지 못했어요'));break}
+    case 'tosurvey':go('survey');break;
     case 'join1':{const n=(state.joinName||document.getElementById('jName').value||'').trim();if(!n){document.getElementById('jErr').hidden=false;document.getElementById('jName').focus();break}
       state.joinName=n;const me=myCk();state.ans=state.ans||(me?{rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[]}:{rounds:[roundOf(state.meet)],personal:[]});
       const m=state.meet;
