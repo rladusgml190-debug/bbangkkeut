@@ -751,9 +751,8 @@ function r05(){
         <label class="f" style="flex:1 1 0">모임 인원 (선택)<input class="fi num" id="f-expected" data-f="expected" inputmode="numeric" value="${d.expected||''}" placeholder="예: 5"></label></div>
       <div class="cap">모임 인원은 결제한 사람을 포함해 세요. 잘 모르면 비워 두세요. 결제한 사람도 체크인할 때 같은 이름을 쓰면 한 사람으로 계산돼요.</div>
     </section>
-    <section class="card"><div class="ch sub">답변 마감</div>
-      <div class="seg2" role="radiogroup" aria-label="답변 마감">${[[30,'30분'],[60,'1시간'],[180,'3시간'],[1440,'하루']].map(([v,l])=>`<button role="radio" aria-checked="${(d.dueMin||60)===v}" data-due="${v}">${l}</button>`).join('')}</div>
-      <div class="cap">링크를 만든 때부터 계산해요. 마감까지 답하지 않은 사람은 ‘예외 없음’으로 계산하고, 금액이 확정돼요. 모임 인원을 적어야 답하지 않은 사람 몫까지 미리 나눌 수 있어요.</div>
+    <section class="card"><div class="ch sub">답변 마감 · 링크를 만든 뒤 1시간</div>
+      <div class="cap">1시간 안에 답하지 않은 사람은 ‘예외 없음’으로 계산하고, 금액이 확정돼요. 모임 인원을 적어야 답하지 않은 사람 몫까지 미리 나눌 수 있어요.</div>
       <label class="agree"><input type="checkbox" id="f-study" ${d.study!==false?'checked':''}><span>베타 테스트 모드 · 참여자에게 연구 동의와 3분 설문을 받아요</span></label>
     </section>
     <div class="cap err" id="formErr" hidden></div>
@@ -835,7 +834,7 @@ async function readReceipt(file){
 }
 async function makeMeet(){
   const d=state.draft;
-  const m={...d,id:d.id||rid('g'),ownerKey:Store.myKey(),round:roundOf(d),paid:{},study:d.study!==false,autoNoResp:true,dueMin:d.dueMin||60,deadline:Date.now()+(d.dueMin||60)*60000,createdAt:Date.now(),updatedAt:Date.now()};
+  const m={...d,id:d.id||rid('g'),ownerKey:Store.myKey(),round:roundOf(d),paid:{},study:d.study!==false,autoNoResp:true,dueMin:60,deadline:Date.now()+60*60000,createdAt:Date.now(),updatedAt:Date.now()};
   try{await withTimeout(Store.db.doc('meets/'+m.id).set(m))}
   catch(e){toast(e&&e.code==='invalid_argument'?'저장 권한이 없어요. 모임 주인 계정으로 열어 주세요.':'저장하지 못했어요. 잠시 후 다시 눌러 주세요.');return}
   state.draft=null;state.mid=m.id;state.meet=m;state.ocr='';
