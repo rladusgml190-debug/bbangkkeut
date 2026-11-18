@@ -1,8 +1,8 @@
 -- 빵끗 웹앱 저장소 (Supabase 프로젝트 prototype-store 안의 테이블 하나)
 -- 로그인 없이 링크를 아는 사람은 모두 읽고 쓸 수 있음. 기기마다 브라우저에 저장된 고유 키로 사람을 구분.
 create table if not exists public.bbk_docs (
-  path text primary key check (char_length(path) between 3 and 200 and path ~ '^(meets|checkins)/[A-Za-z0-9_\-]+$'),
-  coll text not null check (coll in ('meets','checkins')),
+  path text primary key check (char_length(path) between 3 and 200 and path ~ '^(meets|checkins|research)/[A-Za-z0-9_\-]+$'),
+  coll text not null check (coll in ('meets','checkins','research')),
   data jsonb not null check (pg_column_size(data) < 60000),
   updated_at timestamptz not null default now()
 );
