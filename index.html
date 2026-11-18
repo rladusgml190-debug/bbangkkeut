@@ -475,8 +475,9 @@ const SupaDB=(()=>{
   const clone=d=>JSON.parse(JSON.stringify(d));
   const mk=(path,d)=>({id:path.split('/').pop(),exists:!!d,data:()=>d?clone(d):undefined,metadata:{fromCache:false,hasPendingWrites:false}});
   const fail=e=>{throw {code:'unavailable',message:(e&&e.message)||String(e)}};
-  async function getOne(path){const {data,error}=await cli.from(T).select('data').eq('path',path).maybeSingle();if(error)fail(error);return data?data.data:null}
-  async function put(path,d){const {error}=await cli.from(T).upsert({path,coll:path.split('/')[0],data:d,updated_at:new Date().toISOString()});if(error)fail(error);emit()}
+  async function getOne(path){if(path.startsWith('research/'))return null;const {data,error}=await cli.from(T).select('data').eq('path',path).maybeSingle();if(error)fail(error);return data?data.data:null}
+  async function put(path,d){
+    if(path.startsWith('research/')){const {error}=await cli.rpc('bbk_research_put',{p_id:path.slice(9),p_data:d});if(error)fail(error);return}const {error}=await cli.from(T).upsert({path,coll:path.split('/')[0],data:d,updated_at:new Date().toISOString()});if(error)fail(error);emit()}
   function doc(path){return {id:path.split('/').pop(),path,
     get:async()=>mk(path,await getOne(path)),
     set:async(d)=>put(path,clone(d)),
@@ -491,7 +492,8 @@ const SupaDB=(()=>{
       return {docs,size:docs.length,empty:!docs.length,metadata:{fromCache:false}}};
     return {where:(f,op,v)=>query(col,[...filters,[f,op,v]]),get:run,
       onSnapshot:(next,err)=>{let alive=true;const f=()=>run().then(r=>{if(alive)next(r)},e=>{if(alive&&err)err(e)});subs.add(f);f();return ()=>{alive=false;subs.delete(f)}}}}
-  return {doc,collection:(col)=>({...query(col,[]),doc:(id)=>doc(col+'/'+(id||rid('d')))})};
+  async function armCounts(meet){const {data,error}=await cli.rpc('bbk_research_arms',{p_meet:meet});if(error)fail(error);return data||{}}
+  return {doc,armCounts,collection:(col)=>({...query(col,[]),doc:(id)=>doc(col+'/'+(id||rid('d')))})};
 })();
 
 const Store={mode:WEB?'cloud':'local',db:WEB?SupaDB:LocalDB,uid:null,user:null,canWrite:null,sample:null,
@@ -532,7 +534,7 @@ function peopleFor(m,cks){
   if(!payer){payer={id:'__payer',name:m.payer||'총무',status:'base',rounds:[],personal:[],synthetic:true};ppl.unshift(payer)}
   else{ppl.splice(ppl.indexOf(payer),1);ppl.unshift(payer)}
   /* 모임 인원보다 체크인이 적으면, 남은 자리는 '미응답 = 예외 없음'으로 계산 */
-  const left=Math.max(0,(+m.expected||0)-ppl.length);
+  const left=m.autoNoResp?Math.max(0,(+m.expected||0)-ppl.length):0;
   for(let i=1;i<=left;i++)ppl.push({id:'__u'+i,name:'미응답 '+i,status:'base',rounds:[r],personal:[],synthetic:true,pending:true,paid:!!(m.paid&&m.paid['__u'+i]),objection:''});
   return {ppl,payerId:payer.id};
 }
@@ -589,13 +591,13 @@ function compute(m,cks){
 const linkOf=m=>ART_URL+'#m-'+m.id;
 const pad2=n=>String(n).padStart(2,'0');
 const hhmm=t=>{const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`};
-const isClosed=m=>!!(m&&m.deadline&&Date.now()>m.deadline);
-function dueText(m){if(!m||!m.deadline)return '';if(isClosed(m))return '답변 마감 · 금액 확정';
+const isClosed=m=>!!(m&&m.autoNoResp&&m.deadline&&Date.now()>m.deadline);
+function dueText(m){if(!m||!m.autoNoResp||!m.deadline)return '';if(isClosed(m))return '답변 마감 · 금액 확정';
   const left=Math.max(1,Math.ceil((m.deadline-Date.now())/60000));const h=Math.floor(left/60),mm=left%60;
   return `답변 마감까지 ${h?h+'시간 ':''}${h&&!mm?'':mm+'분'} (${hhmm(m.deadline)})`}
 const titleOf=m=>(m.title||'이름 없는 모임')+(m.place?' · '+m.place:'');
 function msgInvite(m){
-  return `[빵끗] ${m.payer||'총무'}님이 ‘${titleOf(m)}’ 정산을 열었어요.\n아래 링크에서 정산 기준을 확인하고 체크인해 주세요.\n${linkOf(m)}\n\n정산 기준: ${rulesOf(m).map(r=>r.short).join(' · ')||'모두 똑같이 N빵'}${m.deadline?`\n답변 마감: ${hhmm(m.deadline)} (마감까지 답이 없으면 ‘예외 없음’으로 계산돼요)`:''}`;
+  return `[빵끗] ${m.payer||'총무'}님이 ‘${titleOf(m)}’ 정산을 열었어요.\n아래 링크에서 정산 기준을 확인하고 체크인해 주세요.\n${linkOf(m)}\n\n정산 기준: ${rulesOf(m).map(r=>r.short).join(' · ')||'모두 똑같이 N빵'}${m.autoNoResp&&m.deadline?`\n답변 마감: ${hhmm(m.deadline)} (마감까지 답이 없으면 ‘예외 없음’으로 계산돼요)`:''}`;
 }
 function msgRemind(m,c){
   const left=c.owed.filter(p=>!p.paid);
@@ -609,7 +611,7 @@ function msgPerson(m,c,p){
   const r=c.rows[p.id];
   let s=`[빵끗] ${titleOf(m)}\n${p.name} 님 몫은 ${won(r.amount)}원이에요.\n\n왜 이 금액이냐면요\n${r.why.map(x=>'· '+x).join('\n')}`;
   if(m.account)s+=`\n\n보낼 곳: ${m.account}`;
-  return s+`\n금액이 다르면 링크 오른쪽 위 깃발로 조용히 알려 주세요.\n${linkOf(m)}`;
+  return s+`\n자세한 내역: ${linkOf(m)}`;
 }
 
 /* ================= 상태 & 라우팅 ================= */
@@ -746,12 +748,14 @@ function r05(){
       <div class="row2"><label class="f">날짜<input class="fi" type="date" id="f-date" data-f="date" value="${esc(d.date)}"></label>
         <label class="f">결제한 사람<input class="fi" id="f-payer" data-f="payer" value="${esc(d.payer)}" placeholder="예: 김연희"></label></div>
       <div class="row2"><label class="f" style="flex:2 1 0">받을 곳 (계좌·카카오페이 안내, 선택)<input class="fi" id="f-account" data-f="account" value="${esc(d.account)}" placeholder="예: 카카오뱅크 3333-00-0000000"></label>
-        <label class="f" style="flex:1 1 0">모임 인원 (결제자 포함)<input class="fi num" id="f-expected" data-f="expected" inputmode="numeric" value="${d.expected||''}" placeholder="예: 5"></label></div>
-      <div class="cap">결제한 사람도 체크인할 때 같은 이름을 쓰면 한 사람으로 계산돼요.</div>
+        <label class="f" style="flex:1 1 0">모임 인원 (선택)<input class="fi num" id="f-expected" data-f="expected" inputmode="numeric" value="${d.expected||''}" placeholder="예: 5"></label></div>
+      <div class="cap">모임 인원은 결제한 사람을 포함해 세요. 잘 모르면 비워 두세요. 결제한 사람도 체크인할 때 같은 이름을 쓰면 한 사람으로 계산돼요.</div>
     </section>
-    <section class="card"><div class="ch sub">답변 마감</div>
-      <div class="seg2" role="radiogroup" aria-label="답변 마감">${[[30,'30분'],[60,'1시간'],[180,'3시간'],[1440,'하루']].map(([v,l])=>`<button role="radio" aria-checked="${(d.dueMin||60)===v}" data-due="${v}">${l}</button>`).join('')}</div>
-      <div class="cap">링크를 만든 때부터 계산해요. 마감까지 답하지 않은 사람은 ‘예외 없음’으로 계산하고, 금액이 확정돼요.</div>
+    <section class="card"><div class="ch sub">답하지 않은 사람은 어떻게 할까요?</div>
+      <div class="seg2" role="radiogroup" aria-label="무응답 처리"><button role="radio" aria-checked="${!d.autoNoResp}" data-auto="0">모두 답할 때까지 기다리기</button><button role="radio" aria-checked="${!!d.autoNoResp}" data-auto="1">마감 후 ‘예외 없음’</button></div>
+      <div class="cap">${d.autoNoResp?'마감까지 답하지 않은 사람은 ‘예외 없음’으로 계산하고, 금액이 확정돼요.':'답한 사람끼리 계산하고, 마감 없이 기다려요.'}</div>
+      ${d.autoNoResp?`<div class="seg2" role="radiogroup" aria-label="답변 마감">${[[30,'30분'],[60,'1시간'],[180,'3시간'],[1440,'하루']].map(([v,l])=>`<button role="radio" aria-checked="${(d.dueMin||60)===v}" data-due="${v}">${l}</button>`).join('')}</div>
+      <div class="cap">링크를 만든 때부터 마감까지의 시간이에요.${d.expected?'':' 모임 인원을 적어야 답하지 않은 사람 몫까지 미리 계산할 수 있어요.'}</div>`:''}
       <label class="agree"><input type="checkbox" id="f-study" ${d.study!==false?'checked':''}><span>베타 테스트 모드 · 참여자에게 연구 동의와 3분 설문을 받아요</span></label>
     </section>
     <div class="cap err" id="formErr" hidden></div>
@@ -833,7 +837,7 @@ async function readReceipt(file){
 }
 async function makeMeet(){
   const d=state.draft;
-  const m={...d,id:d.id||rid('g'),ownerKey:Store.myKey(),round:roundOf(d),paid:{},study:d.study!==false,dueMin:d.dueMin||60,deadline:Date.now()+(d.dueMin||60)*60000,createdAt:Date.now(),updatedAt:Date.now()};
+  const m={...d,id:d.id||rid('g'),ownerKey:Store.myKey(),round:roundOf(d),paid:{},study:d.study!==false,autoNoResp:!!d.autoNoResp,dueMin:d.autoNoResp?(d.dueMin||60):null,deadline:d.autoNoResp?Date.now()+(d.dueMin||60)*60000:null,createdAt:Date.now(),updatedAt:Date.now()};
   try{await withTimeout(Store.db.doc('meets/'+m.id).set(m))}
   catch(e){toast(e&&e.code==='invalid_argument'?'저장 권한이 없어요. 모임 주인 계정으로 열어 주세요.':'저장하지 못했어요. 잠시 후 다시 눌러 주세요.');return}
   state.draft=null;state.mid=m.id;state.meet=m;state.ocr='';
@@ -901,7 +905,7 @@ function rMissing(){
 /* ---------- 참여자 체크인 ---------- */
 function joinHead(){
   const m=state.meet;
-  return `<div class="toprow"><span class="label" style="color:var(--sub)">함께하는 정산</span><button class="icon44" data-act="objection" aria-label="총무에게 조용히 알려주기">${IC.flag}</button></div>
+  return `<div class="toprow"><span class="label" style="color:var(--sub)">함께하는 정산</span></div>
     <h1 class="title" style="font-size:24px;line-height:34px;margin-top:-6px">모임정산이<br>도착했어요.</h1>
     <p class="cap" style="margin-top:-8px">${esc(m.payer||'총무')}님의 ‘${esc(titleOf(m))}’ · ${esc((m.date||'').replace(/-/g,'.'))}</p>`;
 }
@@ -913,7 +917,7 @@ function rJoin(){
     <div class="field"><label class="label" for="jName">내 이름 (실명)</label><input class="in" id="jName" maxlength="12" autocomplete="name" placeholder="예: 김연희 · 별명 말고 실명으로" value="${esc(state.joinName||(ssGet('bbk.pkey.demo')?'':myName()))}"></div>
     <div class="label" style="color:var(--sub);margin-top:4px">${esc(m.payer||'총무')}님이 정한 정산 기준 · ${rules.length}개</div>
     <div class="rcards">${ruleCards(rules)}</div>
-    ${isClosed(m)?`<div class="warn">답변이 마감되었어요. 이름만 적으면 ‘예외 없음’ 기준으로 내 금액을 볼 수 있어요. 사정이 있다면 금액 화면 오른쪽 위 깃발로 총무님께 조용히 알려주세요.</div>`:m.deadline?`<div class="cap due">${dueText(m)}</div>`:''}
+    ${isClosed(m)?`<div class="warn">답변이 마감되었어요. 이름만 적으면 ‘예외 없음’ 기준으로 내 금액을 볼 수 있어요. 사정이 있다면 총무님께 직접 말해 주세요.</div>`:dueText(m)?`<div class="cap due">${dueText(m)}</div>`:''}
     ${blocked?`<div class="warn">이 링크에서는 아직 체크인을 저장할 수 없어요. ${esc(m.payer||'총무')}님께 이 페이지의 <b>편집자 초대</b>를 요청해 주세요.</div>`:''}
     <div class="grow"></div>
     <p class="cap" style="font-size:12px;line-height:19px">기준을 확인했다면 체크인해 주세요.<br>이 모임의 정산에 함께 참여하게 돼요.</p>
@@ -937,7 +941,7 @@ function rJoin2(){
   shell.innerHTML=`<section class="view">
     ${joinHead()}
     <p class="subt" style="margin-top:-6px">${after?'오늘 나에게 해당하는 상황을 알려주세요. 금액을 다시 계산해요.':'내 상황을 알려주세요. 이걸로 내 금액이 계산돼요.'}</p>
-    ${m.deadline&&!isClosed(m)?`<div class="cap due">${dueText(m)}</div>`:''}
+    ${dueText(m)&&!isClosed(m)?`<div class="cap due">${dueText(m)}</div>`:''}
     ${qs.map(q=>`<div class="qcard"><div class="qhead"><span class="ri"><span class="ic">${BREAD[q.bread]}</span></span><b>${q.t}</b></div>
       ${q.hint?`<div class="cap">${q.hint}</div>`:''}
       <div class="chips" role="${q.multi?'group':'radiogroup'}" aria-label="${q.t}">${q.opts.map(([v,l])=>{const on=q.multi?(a[q.k]||[]).includes(v):a[q.k]===v;return `<button class="chip" ${q.multi?'aria-pressed':'role="radio" aria-checked'}="${on}" data-q="${q.k}" data-v='${JSON.stringify(v)}' data-multi="${q.multi?1:0}">${esc(l)}</button>`}).join('')}</div></div>`).join('')}
@@ -969,14 +973,12 @@ function r07(){
   const m=state.meet;if(!m){rMissing();return}
   const c=compute(m,state.cks);const org=state.view==='org';const me=myCk();const meP=me&&c.ppl.find(p=>p.id===me.pkey);
   const exp=+m.expected||0;
-  const head=`<div class="toprow">${org?'<button class="back" data-nav="home">‹ 홈으로</button>':'<span class="label" style="color:var(--sub)">함께하는 정산</span>'}<button class="icon44" data-act="objection" aria-label="${org?'조용히 온 알림 보기':'총무에게 조용히 알려주기'}">${IC.flag}${org&&c.objections.length?`<i class="dot">${c.objections.length}</i>`:''}</button></div>
+  const head=`<div class="toprow">${org?'<button class="back" data-nav="home">‹ 홈으로</button>':'<span class="label" style="color:var(--sub)">함께하는 정산</span>'}</div>
     <div class="mhead"><h1 class="title">${esc(m.payer||'총무')}님의 모임</h1>
       <span class="label" style="color:var(--sub)">${exp?`체크인 인원 ${exp}명중 ${c.checked}명 참여수락`:`체크인 ${c.checked}명 참여수락`}</span>
-      <button class="label linkish" data-act="objection">조용히 온 알림 ${c.objections.length}건</button>
-      ${m.deadline?`<span class="label due" id="due">${dueText(m)}</span>`:''}</div>
+      ${dueText(m)?`<span class="label due" id="due">${dueText(m)}</span>`:''}</div>
     ${org&&c.pending?`<div class="cap note">${isClosed(m)?`답하지 않은 ${c.pending}명은 ‘예외 없음’으로 계산해 금액을 확정했어요.`:`아직 답하지 않은 ${c.pending}명은 ‘예외 없음’으로 계산 중이에요. 마감 전에 답하면 바뀌어요.`}</div>`:''}
-    ${org?`<div class="row2"><button class="btn line small2" data-act="share">${IC.link} 참여 링크 공유</button><button class="btn line small2" data-act="remind">미입금 알림 복사</button></div>
-      <div class="row2"><button class="btn line small2" data-act="extend">마감 30분 연장</button>${m.study?'<button class="btn line small2" data-act="research">연구 데이터</button>':''}</div>`:''}
+    ${org?`<div class="row2"><button class="btn line small2" data-act="share">${IC.link} 참여 링크 공유</button><button class="btn line small2" data-act="remind">미입금 알림 복사</button></div>`:''}
     <div class="tabs r18" role="tablist"><button role="tab" aria-selected="${state.tab==='est'}" data-tab="est">예상 금액</button><button role="tab" aria-selected="${state.tab==='pay'}" data-tab="pay">송금현황</button></div>`;
   let body='';
   if(state.tab==='est'){
@@ -995,7 +997,7 @@ function r07(){
       <div class="label" style="color:var(--sub);margin-top:6px">${esc(m.payer||'총무')}님이 정한 정산 기준 · ${rulesOf(m).length}개</div>
       <div class="rcards">${ruleCards(rulesOf(m))}</div>
       <div class="grow"></div>
-      <p class="cap" style="font-size:12px">금액이 실제와 다르면 오른쪽 위 깃발로 총무님께 조용히 알려주세요</p>
+      ${mine&&!bPending&&!isClosed(m)&&questions(m).length?'<button class="textlink u" data-act="editans">내 답변 고치기</button>':''}
       ${bPending?'<button class="btn" data-act="bexc">다음 · 내 상황 알려주기</button>':`<button class="btn" data-act="ack">${mine&&R&&!R.survey?'확인했어요 · 짧은 설문으로':'확인했어요'}</button>`}`;
   }else{
     body=`<div class="plist">${c.ppl.map(p=>{const r=c.rows[p.id];const isPayer=p.id===c.payerId;const note=isPayer?'결제했어요':noteOf(m,p);
@@ -1027,7 +1029,6 @@ function personSheet(pid){
   const r=c.rows[p.id],org=state.view==='org',mine=p.id===Store.pKey(),isPayer=p.id===c.payerId;
   sheet(`<h3>${esc(p.name)} · <span class="num">${won(r.amount)}원</span></h3>
     <ul class="why">${r.why.map(x=>`<li>${esc(x)}</li>`).join('')}${noteOf(m,p)?`<li>${esc(noteOf(m,p))}</li>`:''}</ul>
-    ${p.objection?`<div class="warn">조용히 온 알림: ${esc(p.objection)}</div>`:''}
     ${!isPayer&&r.amount&&org&&!p.synthetic?`<button class="btn ${p.paid?'line':''}" data-paid>${p.paid?'받음 확인 취소':'받음 확인'}</button><button class="btn kakao" data-pmsg>개인 메시지 복사</button>`:''}
     ${!isPayer&&r.amount&&mine?`${m.account?`<div class="acct"><span class="cap">보낼 곳</span><b>${esc(m.account)}</b></div>`:''}<button class="btn ${p.sent?'line':''}" data-sent>${p.sent?'보냈어요 취소':'송금했어요'}</button>`:''}
     <button class="btn line" data-close>닫기</button>`,
@@ -1036,25 +1037,6 @@ function personSheet(pid){
       try{await Store.db.doc('meets/'+m.id).update({paid,updatedAt:Date.now()});toast(p.paid?'받음 확인을 취소했어요':`${p.name} 님 받음 확인`)}catch(e){toast('저장하지 못했어요')}close()};
     const mb=s.querySelector('[data-pmsg]');if(mb)mb.onclick=()=>copy(msgPerson(m,c,p));
     const sb=s.querySelector('[data-sent]');if(sb)sb.onclick=async()=>{try{await Store.db.doc('checkins/'+m.id+'_'+p.id).update({sent:!p.sent,updatedAt:Date.now()});toast(p.sent?'취소했어요':'송금했다고 알렸어요. 총무가 확인하면 초록색으로 바뀌어요')}catch(e){toast('저장하지 못했어요')}close()};
-  });
-}
-function objectionSheet(){
-  const m=state.meet,c=compute(m,state.cks),org=state.view==='org';
-  if(org){
-    sheet(`<h3>조용히 온 알림 ${c.objections.length}건</h3>${c.objections.length?c.objections.map(p=>`<div class="card" style="gap:6px"><b>${esc(p.name)}</b><span class="cap">${esc(p.objection)}</span><span class="cap num">지금 금액 ${won(c.rows[p.id].amount)}원</span></div>`).join(''):'<div class="cap">아직 온 알림이 없어요.</div>'}
-      <div class="cap">참여자만 볼 수 있는 단톡방 밖의 알림이에요. 금액이 잘못됐다면 영수증 항목을 확인하거나, 마감 전이라면 답변을 고쳐 달라고 부탁해 주세요.</div><button class="btn line" data-close>닫기</button>`);
-    return;
-  }
-  const me=myCk();
-  if(!me){toast('체크인한 뒤에 알려줄 수 있어요');return}
-  sheet(`<h3>총무에게 조용히 알려주기</h3><div class="cap">${esc(m.payer||'총무')}님만 볼 수 있어요. 단톡방에는 올라가지 않아요. 금액이 실제와 다르거나 사정이 있다면 편하게 적어 주세요.</div>
-    <textarea class="sf ta" id="objText" maxlength="200" placeholder="예: 저 1차 중간에 왔어요">${esc(me.objection||'')}</textarea>
-    <div class="row2"><button class="btn line" data-close>취소</button><button class="btn" data-ok>조용히 보내기</button></div>
-    ${isClosed(m)?'<div class="cap">답변은 마감되었어요.</div>':'<button class="textlink u" data-edit>내 답변 고치기 (마감 전까지)</button>'}`,
-  (s,close)=>{
-    s.querySelector('[data-ok]').onclick=async()=>{const t=s.querySelector('#objText').value.trim();
-      try{await Store.db.doc('checkins/'+m.id+'_'+me.pkey).update({objection:t,updatedAt:Date.now()});toast(t?'총무님께 조용히 알렸어요':'알림을 거뒀어요');Study.log(t?'quiet_send':'quiet_clear');close()}catch(e){toast('저장하지 못했어요')}};
-    const ed=s.querySelector('[data-edit]');if(ed)ed.onclick=()=>{Study.log('edit_open');close();state.joinName=me.name;state.ans={rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[]};go(questions(m).length?'join2':'join')};
   });
 }
 
@@ -1132,7 +1114,8 @@ const Study={
   async assign(m,consent){
     let arm='A';
     if(consent){let nA=0,nB=0;
-      try{const q=await withTimeout(Store.db.collection('research').where('meetId','==',m.id).get(),6000);q.docs.forEach(d=>{const x=d.data();if(x.consent){x.arm==='A'?nA++:nB++}})}catch(e){}
+      try{if(Store.db.armCounts){const r=await withTimeout(Store.db.armCounts(m.id),6000);nA=r.A||0;nB=r.B||0}
+        else{const q=await withTimeout(Store.db.collection('research').where('meetId','==',m.id).get(),6000);q.docs.forEach(d=>{const x=d.data();if(x.consent){x.arm==='A'?nA++:nB++}})}}catch(e){}
       arm=nA<nB?'A':nB<nA?'B':(Math.random()<.5?'A':'B')}
     const now=Date.now();
     this.key='research/'+m.id+'_'+Store.pKey();
@@ -1140,7 +1123,8 @@ const Study={
       amountFirst:null,amountAfterExc:null,amountAtAck:null,device:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?'mobile':'desktop',ver:'beta-1'};
     this.save(true);return this.R},
   log(e,v){const R=this.R;if(!R||!R.consent)return;R.ev.push(v===undefined?{e,t:Date.now()}:{e,t:Date.now(),v});if(R.ev.length>400)R.ev=R.ev.slice(-400);this.save()},
-  save(now){const R=this.R,m=state.meet;if(!R||!m||R.meetId!==m.id)return;R.updatedAt=Date.now();lsSet(this.lsKey(m),R);
+  save(now){const R=this.R,m=state.meet;if(!R||!m||R.meetId!==m.id)return;R.updatedAt=Date.now();
+    try{const f=researchRows([R],state.cks,m).rows[0];delete f.pid;R.flat=f}catch(e){}lsSet(this.lsKey(m),R);
     clearTimeout(this.timer);const key=this.key,f=()=>Store.db.doc(key).set(JSON.parse(JSON.stringify(R))).catch(()=>{});if(now)f();else this.timer=setTimeout(f,1200)},
   arm(m){return this.on(m)&&this.R&&this.R.consent?this.R.arm:'A'},
   active(m){return this.on(m)&&this.R&&this.R.consent},
@@ -1235,12 +1219,12 @@ function rThanks(){
   </section>`;
 }
 
-/* ---- 연구 데이터 내보내기 (총무 화면) ---- */
+/* ---- 연구 데이터: 한 사람의 기록을 표의 한 줄로 (서버 → 구글 시트) ---- */
 function researchRows(rs,cks,m){
   const c=compute(m,cks);
   const first=(R,e,f)=>{const x=R.ev.find(v=>v.e===e&&(!f||f(v)));return x?x.t:null};
   const sec=(a,b)=>a&&b?Math.round((b-a)/1000):'';
-  const cols=['pid','arm','consent','device','completed_survey','n_checkin_saves','n_edits_after_exc','n_est_open','quiet_sent',
+  const cols=['meet_id','meet_title','meet_date','meet_rules','meet_auto_noresp','meet_due_min','meet_expected','meet_n_checkins','pid','arm','consent','device','completed_survey','n_checkin_saves','n_edits_after_exc','n_est_open','n_answer_edit_open',
     'ck_drink','ck_rounds','ck_bday','ck_personal_n','amount_first_seen','amount_after_exc','amount_at_ack','amount_now',
     'sec_consent_to_first_amount','sec_on_exception_screen','sec_consent_to_ack','sec_consent_to_survey_end',...SV.filter(q=>q.k).map(q=>q.k),'consent_at'];
   const rows=rs.sort((a,b)=>(a.consentAt||0)-(b.consentAt||0)).map((R,i)=>{
@@ -1250,7 +1234,8 @@ function researchRows(rs,cks,m){
     const tJ2=tExc?([...ev].reverse().find(x=>x.e==='view'&&x.v==='join2'&&x.t<=tExc)||{}).t:null;
     const sv=R.survey||{};
     const row={pid:'P'+String(i+1).padStart(2,'0'),arm:R.consent?R.arm:'',consent:R.consent?1:0,device:R.device||'',completed_survey:R.survey?1:0,
-      n_checkin_saves:saves.length,n_edits_after_exc:Math.max(0,excSaves.length-1),n_est_open:ev.filter(x=>x.e==='est_open').length,quiet_sent:ev.some(x=>x.e==='quiet_send')?1:0,
+      n_checkin_saves:saves.length,n_edits_after_exc:Math.max(0,excSaves.length-1),n_est_open:ev.filter(x=>x.e==='est_open').length,n_answer_edit_open:ev.filter(x=>x.e==='edit_open').length,
+      meet_id:m.id,meet_title:m.title||'',meet_date:m.date||'',meet_rules:(m.rules||[]).join('|'),meet_auto_noresp:m.autoNoResp?1:0,meet_due_min:m.dueMin||'',meet_expected:m.expected||'',meet_n_checkins:cks.length,
       ck_drink:ck.drink===undefined?'':(ck.drink?1:0),ck_rounds:(ck.rounds||[]).join('|'),ck_bday:ck.bday?1:0,ck_personal_n:(ck.personal||[]).length,
       amount_first_seen:R.amountFirst??'',amount_after_exc:R.amountAfterExc??'',amount_at_ack:R.amountAtAck??'',amount_now:c.rows[R.pkey]?c.rows[R.pkey].amount:'',
       sec_consent_to_first_amount:sec(R.consentAt,first(R,'amount_seen')),sec_on_exception_screen:sec(tJ2,tExc),sec_consent_to_ack:sec(R.consentAt,first(R,'ack')),sec_consent_to_survey_end:sec(R.consentAt,first(R,'survey_submit')),
@@ -1258,24 +1243,6 @@ function researchRows(rs,cks,m){
     SV.filter(q=>q.k).forEach(q=>{row[q.k]=sv[q.k]??''});
     return row});
   return {cols,rows};
-}
-const csvCell=v=>{const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
-async function researchSheet(){
-  const m=state.meet;let rs=[];
-  try{const q=await withTimeout(Store.db.collection('research').where('meetId','==',m.id).get());rs=q.docs.map(d=>d.data())}catch(e){toast('연구 데이터를 불러오지 못했어요');return}
-  const {cols,rows}=researchRows(rs,state.cks,m);
-  const csv='﻿'+[cols.join(','),...rows.map(r=>cols.map(k=>csvCell(r[k])).join(','))].join('\n');
-  const yes=rows.filter(r=>r.consent),nA=yes.filter(r=>r.arm==='A').length,nB=yes.filter(r=>r.arm==='B').length,done=rows.filter(r=>r.completed_survey).length;
-  sheet(`<h3>연구 데이터</h3>
-    <div class="card" style="gap:6px"><span class="cap">동의 ${yes.length}명 (A안 ${nA} · B안 ${nB}) · 참여 안 함 ${rows.length-yes.length}명</span><span class="cap">설문 완료 ${done}명</span></div>
-    <div class="cap">이름은 들어가지 않고 P01, P02처럼 번호로 나와요. 엑셀이나 구글 시트에서 열 수 있어요.</div>
-    <button class="btn" data-dl>CSV 파일 내려받기</button>
-    <button class="btn line" data-cp>CSV 내용 복사하기</button>
-    <button class="btn line" data-close>닫기</button>`,
-  (s)=>{
-    s.querySelector('[data-dl]').onclick=()=>{try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=`bbangkkeut_${m.id}_${today()}.csv`;document.body.appendChild(a);a.click();a.remove();toast('내려받기를 시작했어요')}catch(e){toast('이 화면에서는 내려받기가 안 돼요. 복사하기를 써 주세요')}};
-    s.querySelector('[data-cp]').onclick=()=>copy(csv,'CSV를 복사했어요. 시트에 붙여 넣어 주세요');
-  });
 }
 
 /* ================= 이벤트 ================= */
@@ -1297,6 +1264,7 @@ shell.addEventListener('click',e=>{
   if(d.itype){state.itemType=d.itype;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));return}
   if(d.idel){state.draft.items=state.draft.items.filter(i=>i.id!==d.idel);r051();return}
   if(d.sv){const q=SV.find(x=>x.k===d.sv);const v=q.opts?d.v:+d.v;(state.sv||(state.sv={}))[d.sv]=v;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));b.closest('.qcard').classList.remove('miss');return}
+  if(d.auto){state.draft.autoNoResp=d.auto==='1';r05();return}
   if(d.due){state.draft.dueMin=+d.due;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));return}
   if(d.q){const v=JSON.parse(d.v);if(d.multi==='1'){const arr=state.ans[d.q]||(state.ans[d.q]=[]);const i=arr.indexOf(v);if(i>=0)arr.splice(i,1);else arr.push(v);b.setAttribute('aria-pressed',String(i<0))}
     else{state.ans[d.q]=v;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)))}
@@ -1309,13 +1277,13 @@ shell.addEventListener('click',e=>{
     case 'rulecheck':go('rulecheck');break;
     case 'toform':state.draft=state.draft||{title:'',place:'',date:today(),payer:myName(),account:'',expected:0,items:[]};state.draft.rules=[...state.ruleSel];go('form');setTimeout(()=>document.getElementById('f-title')?.focus(),60);break;
     case 'toitems':{const dr=state.draft,er=document.getElementById('formErr');const f=m=>{er.hidden=false;er.textContent=m};
-      if(!dr.title.trim())return f('모임 이름을 적어 주세요.');if(!dr.payer.trim())return f('결제한 사람을 적어 주세요.');if(!(dr.expected>=2))return f('모임 인원을 적어 주세요. 결제한 사람도 포함해서 세요.');go('items');break}
+      if(!dr.title.trim())return f('모임 이름을 적어 주세요.');if(!dr.payer.trim())return f('결제한 사람을 적어 주세요.');go('items');break}
     case 'additem':addItem();break;
     case 'makemeet':makeMeet();break;
     case 'makelink':linkSheet(state.meet);break;
     case 'share':linkSheet(state.meet);break;
     case 'remind':copy(msgRemind(state.meet,compute(state.meet,state.cks)),'미입금 알림을 복사했어요');break;
-    case 'objection':Study.log('quiet_open');objectionSheet();break;
+    case 'editans':{const me=myCk();if(!me)break;Study.log('edit_open');state.joinName=me.name;state.ans={rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[]};go('join2');break}
     case 'toggleEst':state.open=!state.open;if(state.open)Study.log('est_open');r07();break;
     case 'ack':if(state.view==='org'){state.tab='pay';r07();break}
       if(!myCk()){go('join');break}
@@ -1342,9 +1310,6 @@ shell.addEventListener('click',e=>{
     case 'consentNo':Study.assign(state.meet,false).then(()=>go(myCk()?'me':'join'));break;
     case 'svsubmit':svSubmit();break;
     case 'topay':state.tab='pay';go('me');break;
-    case 'research':researchSheet();break;
-    case 'extend':{const m=state.meet;const dl=Math.max(Date.now(),m.deadline||0)+30*60000;
-      Store.db.doc('meets/'+m.id).update({deadline:dl,updatedAt:Date.now()}).then(()=>toast(`마감을 ${hhmm(dl)}로 늦췄어요`)).catch(()=>toast('저장하지 못했어요'));break}
     case 'tojoin':go('join');break;
     case 'demoagain':ssSet('bbk.pkey.demo',rid('p'));state.joinName='';state.ans=null;go('join');break;
     case 'asowner':try{sessionStorage.removeItem('bbk.pkey.demo')}catch(e){}go('org');break;
@@ -1359,7 +1324,7 @@ setInterval(()=>{const m=state.meet;if(!m||!m.deadline)return;const el=document.
   const wasOpen=state._open!==false;const open=!isClosed(m);state._open=open;
   if(wasOpen&&!open&&['org','me'].includes(state.view)){r07();return}
   if(el)el.textContent=dueText(m)},20000);
-window.__bbk={Store,state,researchRows,Study};
+window.__bbk={Store,state,researchRows,Study,compute};
 /* ================= 시작 ================= */
 (async()=>{
   await Store.init();

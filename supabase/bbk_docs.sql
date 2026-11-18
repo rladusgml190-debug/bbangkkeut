@@ -12,3 +12,8 @@ create policy "bbk insert" on public.bbk_docs for insert to anon, authenticated 
 create policy "bbk update" on public.bbk_docs for update to anon, authenticated using (true) with check (coll = split_part(path,'/',1));
 create policy "bbk delete" on public.bbk_docs for delete to anon, authenticated using (true);
 alter publication supabase_realtime add table public.bbk_docs;
+
+-- 연구 데이터(research)는 앱에서 읽거나 고칠 수 없고, 아래 함수로만 저장 (2026-11-18)
+-- bbk_research_put(p_id, p_data): research/<id> 저장
+-- bbk_research_arms(p_meet): 모임별 A/B 동의 인원 수
+-- Edge Function bbk-research-sheet: 연구 데이터를 CSV로 내보냄 → 구글 시트 IMPORTDATA
