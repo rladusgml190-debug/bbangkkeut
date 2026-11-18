@@ -1038,12 +1038,12 @@ function rJoin(){
     <div class="field"><label class="label" for="jName">내 이름 (실명)</label><input class="in" id="jName" maxlength="12" autocomplete="name" placeholder="예: 김연희 · 별명 말고 실명으로" value="${esc(state.joinName||(ssGet('bbk.pkey.demo')?'':myName()))}"></div>
     <div class="label" style="color:var(--sub);margin-top:4px">${esc(m.payer||'총무')}님이 정한 정산 기준 · ${rules.length}개</div>
     <div class="rcards">${ruleCards(rules)}</div>
-    ${isClosed(m)?`<div class="warn">답변이 마감되었어요. 이름만 적으면 ‘예외 없음’ 기준으로 내 금액을 볼 수 있어요. 사정이 있다면 총무님께 직접 말해 주세요.</div>`:dueText(m)?`<div class="cap due">${dueText(m)}</div>`:''}
+    ${isClosed(m)?`<div class="warn">답변 마감이 지났어요. 체크인하고 내 상황을 답하면 기록은 되지만, 금액은 ‘예외 없음’ 기준으로 계산돼요.</div>`:dueText(m)?`<div class="cap due">${dueText(m)}</div>`:''}
     ${blocked?`<div class="warn">이 링크에서는 아직 체크인을 저장할 수 없어요. ${esc(m.payer||'총무')}님께 이 페이지의 <b>편집자 초대</b>를 요청해 주세요.</div>`:''}
     <div class="grow"></div>
     <p class="cap" style="font-size:12px;line-height:19px">기준을 확인했다면 체크인해 주세요.<br>이 모임의 정산에 함께 참여하게 돼요.</p>
     <div class="cap err" id="jErr" hidden>이름을 적어 주세요.</div>
-    <button class="btn" data-act="join1">${isClosed(m)?'내 금액 보기':'체크인 완료하기'}</button>
+    <button class="btn" data-act="join1">체크인 완료하기</button>
     ${Store.mode!=='cloud'||isOwnerOf(m)?'<button class="textlink u" data-act="asowner">총무 화면으로 돌아가기</button>':''}
   </section>`;
   document.getElementById('jName').addEventListener('input',e=>{state.joinName=e.target.value;document.getElementById('jErr').hidden=true});
@@ -1055,14 +1055,21 @@ function questions(m){
   if(ruleOn(m,'r8'))q.push({k:'bday',bread:7,t:'오늘 생일이신가요?',opts:[[true,'네, 생일이에요'],[false,'아니요']]});
   const menu=(m.items||[]).filter(i=>i.type!=='discount');
   if(ruleOn(m,'r6')&&menu.length)q.push({k:'personal',menu:true,bread:5,t:'내가 먹은 메뉴를 모두 골라 주세요',multi:true,opts:menu.map(i=>[i.id,i.name||'메뉴',i.amount,i.type]),hint:'같은 메뉴를 고른 사람끼리 그 메뉴값을 나눠요. 함께 먹은 메뉴도 골라 주세요.'});
+  /* 공통 질문: 기준이 다루지 않는 상황도 물어서 기록 (금액에는 기준에 있는 것만 반영) */
+  const covered={late:ruleOn(m,'r1')||ruleOn(m,'r4')||ruleOn(m,'r5'),nodrink:ruleOn(m,'r3')||ruleOn(m,'r6'),own:ruleOn(m,'r6'),bday:ruleOn(m,'r8')};
+  const S=[['late','늦게 왔거나 일찍 갔어요'],['nodrink','술을 마시지 않았어요'],['own','나만 따로 시킨 메뉴가 있어요'],['bday','오늘 생일이에요']].filter(([k])=>!covered[k]);
+  q.push({k:'situ',bread:6,t:q.length?'그 밖에 정산에 반영됐으면 하는 상황이 있나요?':'오늘 나에게 해당하는 상황이 있나요?',multi:true,
+    opts:[...S,['other','기타 사정이 있어요'],['none','해당 없어요']],hint:'이번 정산 기준에 없는 상황은 금액에 반영되지 않고, 참고로만 기록돼요.'});
   return q;
 }
+const SITU={late:'늦게 옴·일찍 감',nodrink:'술 안 마심',own:'따로 시킨 메뉴',bday:'생일',other:'기타 사정',none:'해당 없음'};
 function rJoin2(){
   const m=state.meet,qs=questions(m),a=state.ans;const after=Study.arm(m)==='B'&&!!myCk();
   shell.innerHTML=`<section class="view">
     ${joinHead()}
     <p class="subt" style="margin-top:-6px">${after?'오늘 나에게 해당하는 상황을 알려주세요. 금액을 다시 계산해요.':'내 상황을 알려주세요. 이걸로 내 금액이 계산돼요.'}</p>
     ${dueText(m)&&!isClosed(m)?`<div class="cap due">${dueText(m)}</div>`:''}
+    ${isClosed(m)?'<div class="warn">답변 마감이 지났어요. 답변은 기록되지만 금액에는 반영되지 않아요.</div>':''}
     ${qs.map(q=>q.menu?menuPick(m,q,a):`<div class="qcard"><div class="qhead"><span class="ri"><span class="ic">${BREAD[q.bread]}</span></span><b>${q.t}</b></div>
       ${q.hint?`<div class="cap">${q.hint}</div>`:''}
       <div class="chips" role="${q.multi?'group':'radiogroup'}" aria-label="${q.t}">${q.opts.map(([v,l])=>{const on=q.multi?(a[q.k]||[]).includes(v):a[q.k]===v;return `<button class="chip" ${q.multi?'aria-pressed':'role="radio" aria-checked'}="${on}" data-q="${q.k}" data-v='${JSON.stringify(v)}' data-multi="${q.multi?1:0}">${esc(l)}</button>`}).join('')}</div></div>`).join('')}
@@ -1083,19 +1090,21 @@ function menuPick(m,q,a){
 }
 async function saveCheckin(base){
   const m=state.meet,qs=questions(m),a=state.ans;
-  if(!base&&isClosed(m)){toast('답변이 마감되었어요');go(myCk()?'me':'join');return}
-  const miss=base?null:qs.find(q=>!q.multi&&a[q.k]===undefined)||qs.find(q=>q.k==='rounds'&&!(a.rounds||[]).length)||qs.find(q=>q.menu&&!(a.personal||[]).length);
-  if(miss){const e=document.getElementById('qErr');e.hidden=false;e.textContent=miss.menu?'먹은 메뉴를 하나 이상 골라 주세요.':`‘${miss.t}’에 답해 주세요.`;return}
-  const pkey=Store.pKey();const old=myCk()||{};
-  const doc={...old,meetId:m.id,pkey,name:state.joinName.trim(),rounds:a.rounds||[],drink:a.drink!==undefined?a.drink:true,bday:!!a.bday,personal:a.personal||[],at:old.at||Date.now(),updatedAt:Date.now()};
+  const miss=base?null:qs.find(q=>!q.multi&&a[q.k]===undefined)||qs.find(q=>q.k==='rounds'&&!(a.rounds||[]).length)||qs.find(q=>q.menu&&!(a.personal||[]).length)||qs.find(q=>q.k==='situ'&&!(a.situ||[]).length);
+  if(miss){const e=document.getElementById('qErr');e.hidden=false;e.textContent=miss.menu?'먹은 메뉴를 하나 이상 골라 주세요.':miss.k==='situ'?'해당하는 상황을 골라 주세요. 없으면 ‘해당 없어요’를 눌러 주세요.':`‘${miss.t}’에 답해 주세요.`;return}
+  const pkey=Store.pKey();const old=myCk()||{};const late=!base&&isClosed(m);
+  const ans={rounds:a.rounds||[],drink:a.drink!==undefined?a.drink:true,bday:!!a.bday,personal:a.personal||[]};
+  /* 마감 뒤 답변: 기록만 하고 금액은 '예외 없음'(또는 마감 전 답) 그대로 */
+  const keep=late?{rounds:old.rounds||[roundOf(m)],drink:old.drink!==undefined?old.drink:true,bday:!!old.bday,personal:old.personal||[]}:ans;
+  const doc={...old,meetId:m.id,pkey,name:(state.joinName||old.name||'').trim(),...keep,situ:a.situ||old.situ||[],...(late?{afterDue:true,lateAns:{...ans,situ:a.situ||[],at:Date.now()}}:{}),at:old.at||Date.now(),updatedAt:Date.now()};
   try{await withTimeout(Store.db.doc('checkins/'+m.id+'_'+pkey).set(doc))}
   catch(e){
     if(e&&e.code==='invalid_argument'){Store.canWrite=false;sheet(`<h3>체크인을 저장하지 못했어요</h3><div class="cap">이 페이지에 쓸 권한이 아직 없어요. ${esc(m.payer||'총무')}님께 claude.ai 공유 메뉴에서 이메일로 <b>편집자</b> 초대를 해 달라고 요청해 주세요.</div><button class="btn" data-close>알겠어요</button>`)}
     else toast('저장하지 못했어요. 잠시 후 다시 눌러 주세요.');
     return}
-  Study.log('checkin_saved',{exc:base?0:1,drink:doc.drink?1:0,rounds:doc.rounds.join('|'),bday:doc.bday?1:0,np:doc.personal.length});
+  Study.log('checkin_saved',{exc:base?0:1,late:late?1:0,drink:ans.drink?1:0,rounds:ans.rounds.join('|'),bday:ans.bday?1:0,np:ans.personal.length,situ:(a.situ||[]).join('|')});
   if(!base&&Study.R){Study.R.excDone=true;Study.save()}
-  toast(base?'체크인했어요! 내 금액을 확인해 주세요':'저장했어요!');state.tab='est';state.open=false;go('me');
+  toast(base?'체크인했어요! 내 금액을 확인해 주세요':late?'기록했어요. 마감 뒤 답변이라 금액에는 반영되지 않아요':'저장했어요!');state.tab='est';state.open=false;go('me');
 }
 
 /* ---------- 07 내 정산 확인 (참여자 · 총무 공통) ---------- */
@@ -1114,7 +1123,7 @@ function r07(){
   if(state.tab==='est'){
     const mine=!org&&meP;const amt=mine?c.rows[meP.id].amount:c.nb;
     const R=Study.active(m)?Study.R:null;
-    const bPending=mine&&R&&R.arm==='B'&&!R.excDone&&!isClosed(m)&&questions(m).length>0;
+    const bPending=mine&&R&&R.arm==='B'&&!R.excDone&&questions(m).length>0;
     if(mine&&R){if(R.amountFirst==null){R.amountFirst=amt;Study.log('amount_seen',amt)}if(R.excDone&&R.amountAfterExc==null){R.amountAfterExc=amt;Study.log('amount_after_exc',amt)}}
     const changed=mine&&R&&R.arm==='B'&&R.excDone&&R.amountFirst!=null&&R.amountFirst!==amt;
     const detail=mine?c.rows[meP.id].why.map(x=>`<li>${esc(x)}</li>`).join('')
@@ -1123,6 +1132,7 @@ function r07(){
       ${state.open?`<ul class="why">${detail}</ul>`:''}
       ${!mine&&!org?'<div class="cap">아직 체크인하지 않았어요. 체크인하면 내 금액이 보여요.</div>':''}
       ${changed?`<div class="cap note">처음 금액 ${won(R.amountFirst)}원 → 내 상황을 반영해 ${won(amt)}원이 되었어요.</div>`:''}
+      ${mine&&(myCk()||{}).afterDue?'<div class="cap note">마감 뒤에 답해서, 금액은 ‘예외 없음’ 기준으로 계산됐어요.</div>':''}
       ${bPending?`<div class="callout"><b>아직 끝나지 않았어요</b><span class="cap">지금 금액은 ‘예외 없음’ 기준이에요. 오늘 나에게 해당하는 상황(술, 참석 차수 등)이 있다면 알려주세요. 금액을 다시 계산해요.</span></div>`:''}
       <button class="btn line rc-open" data-act="receipt">🧾 정산 영수증 보기</button>
       <details class="rdet"><summary>${esc(m.payer||'총무')}님이 정한 정산 기준 · ${rulesOf(m).length}개 <span class="cap">${rulesOf(m).map(r=>r.short).join(' · ')||'모두 똑같이 N빵'}</span></summary><div class="rcards">${ruleCards(rulesOf(m))}</div></details>
@@ -1189,6 +1199,7 @@ function personSheet(pid){
   const r=c.rows[p.id],org=state.view==='org',mine=p.id===Store.pKey(),isPayer=p.id===c.payerId;
   sheet(`<h3>${esc(p.name)} · <span class="num">${won(r.amount)}원</span></h3>
     <ul class="why">${r.why.map(x=>`<li>${esc(x)}</li>`).join('')}${noteOf(m,p)?`<li>${esc(noteOf(m,p))}</li>`:''}</ul>
+    ${(()=>{const ck=state.cks.find(k=>k.pkey===p.id)||{};const sv=(ck.situ||[]).filter(x=>x!=='none');return sv.length?`<div class="cap note">알려준 상황: ${sv.map(x=>SITU[x]||x).join(' · ')}${ck.afterDue?' (마감 뒤 답변)':''}</div>`:''})()}
     ${!isPayer&&r.amount&&org&&!p.synthetic?`<button class="btn ${p.paid?'line':''}" data-paid>${p.paid?'받음 확인 취소':'받음 확인'}</button><button class="btn kakao" data-pmsg>개인 메시지 복사</button>`:''}
     ${!isPayer&&r.amount&&mine?`${m.account?`<div class="acct"><span class="cap">보낼 곳</span><b>${esc(m.account)}</b></div>`:''}<button class="btn ${p.sent?'line':''}" data-sent>${p.sent?'보냈어요 취소':'송금했어요'}</button>`:''}
     <button class="btn line" data-close>닫기</button>`,
@@ -1385,7 +1396,7 @@ function researchRows(rs,cks,m){
   const first=(R,e,f)=>{const x=R.ev.find(v=>v.e===e&&(!f||f(v)));return x?x.t:null};
   const sec=(a,b)=>a&&b?Math.round((b-a)/1000):'';
   const cols=['meet_id','meet_title','meet_date','meet_rules','meet_auto_noresp','meet_due_min','meet_expected','meet_n_checkins','pid','arm','consent','device','completed_survey','n_checkin_saves','n_edits_after_exc','n_est_open','n_answer_edit_open',
-    'ck_drink','ck_rounds','ck_bday','ck_personal_n','amount_first_seen','amount_after_exc','amount_at_ack','amount_now',
+    'ck_situ','ck_after_due','ck_drink','ck_rounds','ck_bday','ck_personal_n','amount_first_seen','amount_after_exc','amount_at_ack','amount_now',
     'sec_consent_to_first_amount','sec_on_exception_screen','sec_consent_to_ack','sec_consent_to_survey_end',...SV.filter(q=>q.k).map(q=>q.k),'consent_at'];
   const rows=rs.sort((a,b)=>(a.consentAt||0)-(b.consentAt||0)).map((R,i)=>{
     const ck=cks.find(x=>x.pkey===R.pkey)||{};const ev=R.ev||[];
@@ -1396,7 +1407,7 @@ function researchRows(rs,cks,m){
     const row={pid:'P'+String(i+1).padStart(2,'0'),arm:R.consent?R.arm:'',consent:R.consent?1:0,device:R.device||'',completed_survey:R.survey?1:0,
       n_checkin_saves:saves.length,n_edits_after_exc:Math.max(0,excSaves.length-1),n_est_open:ev.filter(x=>x.e==='est_open').length,n_answer_edit_open:ev.filter(x=>x.e==='edit_open').length,
       meet_id:m.id,meet_title:m.title||'',meet_date:m.date||'',meet_rules:(m.rules||[]).join('|'),meet_auto_noresp:m.autoNoResp?1:0,meet_due_min:m.dueMin||'',meet_expected:m.expected||'',meet_n_checkins:cks.length,
-      ck_drink:ck.drink===undefined?'':(ck.drink?1:0),ck_rounds:(ck.rounds||[]).join('|'),ck_bday:ck.bday?1:0,ck_personal_n:(ck.personal||[]).length,
+      ck_situ:(ck.situ||[]).join('|'),ck_after_due:ck.afterDue?1:0,ck_drink:ck.drink===undefined?'':(ck.drink?1:0),ck_rounds:(ck.rounds||[]).join('|'),ck_bday:ck.bday?1:0,ck_personal_n:(ck.personal||[]).length,
       amount_first_seen:R.amountFirst??'',amount_after_exc:R.amountAfterExc??'',amount_at_ack:R.amountAtAck??'',amount_now:c.rows[R.pkey]?c.rows[R.pkey].amount:'',
       sec_consent_to_first_amount:sec(R.consentAt,first(R,'amount_seen')),sec_on_exception_screen:sec(tJ2,tExc),sec_consent_to_ack:sec(R.consentAt,first(R,'ack')),sec_consent_to_survey_end:sec(R.consentAt,first(R,'survey_submit')),
       consent_at:R.consentAt?new Date(R.consentAt).toISOString():''};
@@ -1428,6 +1439,9 @@ shell.addEventListener('click',e=>{
   if(d.due){state.draft.dueMin=+d.due;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));return}
   if(d.q){const v=JSON.parse(d.v);if(d.multi==='1'){const arr=state.ans[d.q]||(state.ans[d.q]=[]);const i=arr.indexOf(v);if(i>=0)arr.splice(i,1);else arr.push(v);b.setAttribute('aria-pressed',String(i<0))}
     else{state.ans[d.q]=v;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)))}
+    if(d.q==='situ'){const arr=state.ans.situ||[];
+      if(v==='none'&&arr.includes('none'))state.ans.situ=['none'];else if(v!=='none')state.ans.situ=arr.filter(x=>x!=='none');
+      const y=window.scrollY;rJoin2();window.scrollTo(0,y);return}
     if(d.q==='personal'){const y=window.scrollY;rJoin2();window.scrollTo(0,y);return}
     const er=document.getElementById('qErr');if(er)er.hidden=true;return}
   switch(d.act){
@@ -1444,7 +1458,7 @@ shell.addEventListener('click',e=>{
     case 'makelink':linkSheet(state.meet);break;
     case 'share':linkSheet(state.meet);break;
     case 'remind':copy(msgRemind(state.meet,compute(state.meet,state.cks)),'미입금 알림을 복사했어요');break;
-    case 'editans':{const me=myCk();if(!me)break;Study.log('edit_open');state.joinName=me.name;state.ans={rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[]};go('join2');break}
+    case 'editans':{const me=myCk();if(!me)break;Study.log('edit_open');state.joinName=me.name;state.ans={rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[],situ:me.situ||[]};go('join2');break}
     case 'toggleEst':state.open=!state.open;if(state.open)Study.log('est_open');r07();break;
     case 'ack':if(state.view==='org'){state.tab='pay';r07();break}
       if(!myCk()){go('join');break}
@@ -1461,11 +1475,11 @@ shell.addEventListener('click',e=>{
     case 'join1':{const n=(state.joinName||document.getElementById('jName').value||'').trim();if(!n){document.getElementById('jErr').hidden=false;document.getElementById('jName').focus();break}
       state.joinName=n;const me=myCk();state.ans=state.ans||(me?{rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[]}:{rounds:[roundOf(state.meet)],personal:[]});
       const m=state.meet;
-      if(isClosed(m)||!questions(m).length){state.ans={rounds:[roundOf(m)],personal:[]};saveCheckin(true);break}
+      if(!questions(m).length){state.ans={rounds:[roundOf(m)],personal:[]};saveCheckin(true);break}
       if(Study.arm(m)==='B'&&!(Study.R&&Study.R.excDone)){if(!me)state.ans={rounds:[roundOf(m)],personal:[]};saveCheckin(true);break}
       go('join2');break}
     case 'join2':saveCheckin();break;
-    case 'bexc':{const me=myCk();state.joinName=me.name;state.ans={rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[]};Study.log('bexc_open');go('join2');break}
+    case 'bexc':{const me=myCk();state.joinName=me.name;state.ans={rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[],situ:me.situ||[]};Study.log('bexc_open');go('join2');break}
     case 'consentYes':{if(!document.getElementById('cAgree').checked){document.getElementById('cErr').hidden=false;break}
       b.disabled=true;Study.assign(state.meet,true).then(()=>go(myCk()?'me':'join'));break}
     case 'consentNo':Study.assign(state.meet,false).then(()=>go(myCk()?'me':'join'));break;
