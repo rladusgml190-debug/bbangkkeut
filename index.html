@@ -830,7 +830,7 @@ function addPhotos(files){
   files.slice(0,10).forEach(f=>state.photos.push({id:rid('ph'),file:f,url:URL.createObjectURL(f),st:'wait',n:0}));
   r051();runPhotoQueue();
 }
-let photoBusy=false;
+let photoBusy=false,ocrVia='';
 async function runPhotoQueue(){
   if(photoBusy)return;photoBusy=true;
   try{for(;;){const ph=(state.photos||[]).find(x=>x.st==='wait');if(!ph)break;ph.st='reading';sayOcr('영수증을 읽고 있어요… 잠시만 기다려 주세요.');if(state.view==='items')r051();
@@ -842,7 +842,7 @@ async function runPhotoQueue(){
         .filter(x=>x.type!=='discount'||types.includes('discount'));
       list.forEach(x=>state.draft.items.push({id:rid('i'),...x,src:ph.id}));
       ph.n=list.length;ph.st=list.length?'done':'fail';
-      sayOcr(list.length?`영수증에서 ${list.length}개 항목을 넣었어요. 이름과 금액이 맞는지 확인해 주세요.`:(why||'이 사진에서는 항목을 찾지 못했어요. 더 밝게 다시 찍거나 직접 입력해 주세요.'));
+      sayOcr(list.length?`영수증에서 ${list.length}개 항목을 넣었어요 (${ocrVia}로 읽음). 이름과 금액이 맞는지 확인해 주세요.`:(why||'이 사진에서는 항목을 찾지 못했어요. 더 밝게 다시 찍거나 직접 입력해 주세요.'));
       if(state.view==='items')r051()}}
   finally{photoBusy=false}
 }
@@ -862,15 +862,15 @@ async function readReceipt(file){
 - amount: 그 줄의 합계 금액(원, 정수, 수량×단가가 이미 곱해진 값)
 - type: 소주·맥주·와인·막걸리·하이볼·사케 같은 술은 "drink", 할인·쿠폰 줄은 "discount"(amount는 양수), 나머지는 "common"
 - 합계, 부가세, 봉사료, 카드·승인 정보 줄은 빼
-- 읽을 수 없으면 []`,{images:[file],modelTier:'default'});return Array.isArray(arr)?arr:[]}
+- 읽을 수 없으면 []`,{images:[file],modelTier:'default'});ocrVia='Claude';return Array.isArray(arr)?arr:[]}
     catch(e){if(e&&e.code==='not_granted')throw {msg:'Claude 사용을 허락하지 않아서 자동 인식을 할 수 없어요. 직접 입력해 주세요.'}}
   }
   let small=file;try{small=await shrinkImage(file)}catch(e){}
   if(WEB&&Store.db.receipt){
-    try{const r=await withTimeout(Store.db.receipt(await blobB64(small),'image/jpeg'),45000);if(r&&Array.isArray(r.items))return r.items}catch(e){}
+    try{const r=await withTimeout(Store.db.receipt(await blobB64(small),'image/jpeg'),45000);if(r&&Array.isArray(r.items)){ocrVia='Claude';return r.items}}catch(e){}
   }
   sayOcr('휴대폰에서 글자를 읽고 있어요… 처음 한 번은 30초쯤 걸려요.');
-  return parseReceiptText(await phoneOcr(small));
+  ocrVia='휴대폰 글자 인식';return parseReceiptText(await phoneOcr(small));
 }
 let tessWorker=null;
 async function phoneOcr(blob){
