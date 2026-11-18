@@ -27,7 +27,7 @@ button{cursor:pointer}
 .shell.clip{overflow:hidden}
 @media (min-width:520px){
   body{padding-block:24px}
-  .shell{min-height:calc(100dvh - 48px);border-radius:40px;box-shadow:0 16px 36px rgba(26,26,31,.09);overflow:hidden}
+  .shell{min-height:calc(100dvh - 48px);border-radius:40px;box-shadow:0 16px 36px rgba(26,26,31,.09);overflow:clip}
 }
 .view{flex:1;display:flex;flex-direction:column;gap:14px;padding-bottom:28px;min-width:0}
 
@@ -304,6 +304,24 @@ textarea.sf{height:auto;min-height:144px;padding:14px 16px;font-size:14px;line-h
 .mn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .mn b{font-size:15px;overflow-wrap:anywhere}
 .ma{flex:none;font-weight:700;font-size:15px}
+/* iPhone: 주요 버튼은 화면 아래에 붙어서 스크롤 없이 보이게 */
+.view>.btn:not(.line):not(.small2),.view>.paybar{position:sticky;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);z-index:6;box-shadow:0 8px 24px rgba(27,29,31,.18)}
+.paybar{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:10px 10px 10px 16px}
+.paybar .pb-t{flex:1;min-width:0;display:flex;flex-direction:column}
+.paybar .pb-t b{font-size:20px;line-height:26px}
+.paybar .btn{width:auto;flex:none;padding:14px 18px}
+.paybar.done{background:var(--ok-soft);border-color:var(--ok)}
+/* 세로 공간 줄이기 */
+.view{gap:12px}
+.rcards{gap:8px}
+.rcard{min-height:0;padding:10px 12px 10px 8px;gap:10px}
+.rcard .cap br{display:none}
+.rdet{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.rdet summary{cursor:pointer;font-weight:700;font-size:14px;list-style:none;display:flex;flex-direction:column;gap:2px}
+.rdet summary::-webkit-details-marker{display:none}
+.rdet summary::after{content:"펼쳐 보기 ▾";font-size:12px;font-weight:600;color:var(--sub)}
+.rdet[open] summary::after{content:"접기 ▴"}
+.rdet[open] .rcards{margin-top:10px}
 </style>
 
 <div class="beta-pill" aria-label="베타 버전">BETA · 베타 버전</div>
@@ -1079,18 +1097,21 @@ function r07(){
       ${!mine&&!org?'<div class="cap">아직 체크인하지 않았어요. 체크인하면 내 금액이 보여요.</div>':''}
       ${changed?`<div class="cap note">처음 금액 ${won(R.amountFirst)}원 → 내 상황을 반영해 ${won(amt)}원이 되었어요.</div>`:''}
       ${bPending?`<div class="callout"><b>아직 끝나지 않았어요</b><span class="cap">지금 금액은 ‘예외 없음’ 기준이에요. 오늘 나에게 해당하는 상황(술, 참석 차수 등)이 있다면 알려주세요. 금액을 다시 계산해요.</span></div>`:''}
-      <div class="label" style="color:var(--sub);margin-top:6px">${esc(m.payer||'총무')}님이 정한 정산 기준 · ${rulesOf(m).length}개</div>
-      <div class="rcards">${ruleCards(rulesOf(m))}</div>
+      <details class="rdet"><summary>${esc(m.payer||'총무')}님이 정한 정산 기준 · ${rulesOf(m).length}개 <span class="cap">${rulesOf(m).map(r=>r.short).join(' · ')||'모두 똑같이 N빵'}</span></summary><div class="rcards">${ruleCards(rulesOf(m))}</div></details>
       <div class="grow"></div>
       ${mine&&!bPending&&!isClosed(m)&&questions(m).length?'<button class="textlink u" data-act="editans">내 답변 고치기</button>':''}
-      ${bPending?'<button class="btn" data-act="bexc">다음 · 내 상황 알려주기</button>':`<button class="btn" data-act="ack">${mine&&R&&!R.survey?'확인했어요 · 짧은 설문으로':'확인했어요'}</button>`}`;
+      ${bPending?'<button class="btn" data-act="bexc">다음 · 내 상황 알려주기</button>':mine&&R&&!R.survey?'<button class="btn" data-act="ack">확인했어요 · 짧은 설문으로</button>':mine&&c.rows[meP.id].amount&&meP.id!==c.payerId?`<button class="btn" data-act="topay">${meP.sent?'송금 현황 보기':`송금하러 가기 · ${won(c.rows[meP.id].amount)}원`}</button>`:'<button class="btn" data-act="ack">확인했어요</button>'}`;
   }else{
-    body=`<div class="plist">${c.ppl.map(p=>{const r=c.rows[p.id];const isPayer=p.id===c.payerId;const note=isPayer?'결제했어요':noteOf(m,p);
+    const myAmt=!org&&meP&&meP.id!==c.payerId?c.rows[meP.id].amount:0;
+    body=`${!org?payInfo(m,c,org,meP):''}<div class="plist">${c.ppl.map(p=>{const r=c.rows[p.id];const isPayer=p.id===c.payerId;const note=isPayer?'결제했어요':noteOf(m,p);
       const icon=isPayer||!r.amount?'<span class="sicon"></span>':p.paid?`<span class="sicon" title="받음 확인">${IC.paid}</span>`:p.sent?`<span class="sicon" title="보냈어요">${IC.sent}</span>`:`<span class="sicon" title="아직 안 보냄">${IC.unpaid}</span>`;
       return `<button class="pcard" data-person="${esc(p.id)}">${icon}<span class="pc"><span class="pn"><b>${esc(p.name)}${p.id===(me&&me.pkey)?' (나)':''}</b>${note?`<span>${esc(note)}</span>`:''}</span><span class="pa num">${won(r.amount)}원</span></span><span class="pch">${IC.chev}</span></button>`}).join('')}</div>
       <div class="cap legend"><span>${IC.paid} 받음 확인</span><span>${IC.sent} 보냈어요</span><span>${IC.unpaid} 아직</span></div>
-      ${payInfo(m,c,org,meP)}
-      ${!org&&!me?'<button class="btn" data-act="tojoin">체크인하러 가기</button>':''}`;
+      ${org?payInfo(m,c,org,meP):''}
+      <div class="grow"></div>
+      ${!org&&!me?'<button class="btn" data-act="tojoin">체크인하러 가기</button>':''}
+      ${myAmt?`<div class="paybar ${meP.sent?'done':''}"><div class="pb-t"><span class="cap">${esc(m.payer||'총무')}님께 보낼 금액</span><b class="num">${won(myAmt)}원</b></div>
+        ${meP.sent?`<button class="btn line" data-act="togglesent">✓ 보냈어요 · 취소</button>`:`<button class="btn" data-act="togglesent">송금했어요</button>`}</div>`:''}`;
   }
   shell.innerHTML=`<section class="view">${head}${body}
     ${Store.mode!=='cloud'&&!org?'<button class="textlink u" data-act="demoagain">다른 사람으로 체크인하기 (시연)</button>':''}
@@ -1107,7 +1128,6 @@ function payInfo(m,c,org,meP){
     <div class="pi-row"><span class="cap">계좌</span><b class="num">${esc(m.account).replace(/-/g,'\u2011')}</b><button class="btn line small2" data-act="copyacctnum">복사</button></div>
     ${myAmt?`<div class="pi-row"><span class="cap">보낼 금액</span><b class="num">${won(myAmt)}원</b><button class="btn line small2" data-act="copyamt">복사</button></div>`:''}
     <button class="btn line" data-act="copyall">${IC.link} 송금 정보 한 번에 복사</button>
-    ${myAmt?`<button class="btn ${sent?'line':''}" data-act="togglesent">${sent?'보냈어요 취소':'송금했어요'}</button>`:''}
   </div>`}
 function personSheet(pid){
   const m=state.meet,c=compute(m,state.cks),p=c.ppl.find(x=>x.id===pid);if(!p)return;
@@ -1125,7 +1145,7 @@ function personSheet(pid){
   });
 }
 
-/* ---------- 00 홈 · 내 모임 · 메시지 ---------- */
+/* ---------- 00 홈 · 내 모임 · 공유·알림 ---------- */
 let homeSub=null;
 function watchMyMeets(){
   if(homeSub)return;
@@ -1136,7 +1156,7 @@ function gcard(m){
     <div class="cap num">${esc(m.date||'')} · 총 ${won((m.items||[]).reduce((a,i)=>a+(i.type==='discount'?-1:1)*(+i.amount||0),0))}원 · 기준 ${(m.rules||[]).length}개</div></button>`;
 }
 function nav(){
-  const it=[['home','홈',SVG.home_i],['mine','내 모임',SVG.people],['msglist','메시지',SVG.chat]];
+  const it=[['home','홈',SVG.home_i],['mine','내 모임',SVG.people],['msglist','공유·알림',SVG.chat]];
   return `<nav class="nav" aria-label="하단 메뉴">${it.map(([k,l,ic])=>{const on=state.view===k;return `<button data-nav="${k}" ${on?'aria-current="page"':''}>${ic(on?'#1B1D1F':'#686C70')}${l}</button>`}).join('')}</nav>`;
 }
 function r00(){
@@ -1167,10 +1187,10 @@ function rMine(){
 function rMsgList(){
   watchMyMeets();unsubAll();
   shell.innerHTML=`<section class="view">
-    <header class="hhead"><h1 class="title">메시지</h1></header>
-    <p class="subt" style="margin-top:-6px">모임 링크를 다시 보내거나, 정산 현황을 열어 미입금 알림을 보내요.</p>
+    <header class="hhead"><h1 class="title">공유 · 알림</h1></header>
+    <p class="subt" style="margin-top:-6px">단톡방에 모임 링크를 다시 보내거나, 아직 송금하지 않은 사람에게 알림을 보내요.</p>
     ${state.myMeets.length?state.myMeets.map(m=>`<div class="card" style="gap:10px"><b style="font-size:16px">${esc(titleOf(m))}</b><span class="cap">${esc((m.date||'').replace(/-/g,'.'))} · 결제 ${esc(m.payer||'')}</span>
-      <div class="row2"><button class="btn small line" data-invite="${m.id}">초대 메시지 복사</button><button class="btn small" data-open="${m.id}">정산 현황</button></div></div>`).join(''):'<div class="homeempty"><b style="font-size:14px">메시지를 보낼 모임이 없어요</b></div>'}
+      <div class="row2"><button class="btn small line" data-invite="${m.id}">링크 다시 보내기</button><button class="btn small" data-open="${m.id}" data-tab2="pay">미입금 알림</button></div></div>`).join(''):'<div class="homeempty"><b style="font-size:14px">공유할 모임이 아직 없어요</b></div>'}
   </section>${nav()}`;
 }
 function meSheet(){
@@ -1336,7 +1356,7 @@ shell.addEventListener('input',e=>{const t=e.target;if(state.view==='form'&&t.da
 shell.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||b.disabled)return;const d=b.dataset;
   if(d.nav){if(['home','mine','msglist'].includes(d.nav)&&!state.profile){go('onb1');return}go(d.nav);return}
-  if(d.open){openMeet(d.open,'org');return}
+  if(d.open){openMeet(d.open,'org',d.tab2);return}
   if(d.invite){const m=state.myMeets.find(x=>x.id===d.invite);if(m)copy(msgInvite(m),'초대 메시지를 복사했어요');return}
   if(d.tab){state.tab=d.tab;r07();return}
   if(d.person){personSheet(d.person);return}
@@ -1382,7 +1402,7 @@ shell.addEventListener('click',e=>{
     case 'copyall':{const m=state.meet,c=compute(m,state.cks),me=c.ppl.find(x=>x.id===Store.pKey());const amt=me&&me.id!==c.payerId?c.rows[me.id].amount:0;
       copy(`[${m.title||'모임'} 정산]\n받는 분: ${m.payer||'총무'}\n계좌: ${m.account}${amt?`\n보낼 금액: ${won(amt)}원`:`\n1인 예상: ${won(c.nb)}원`}`,'송금 정보를 복사했어요');break}
     case 'togglesent':{const m=state.meet,c=compute(m,state.cks),me=c.ppl.find(x=>x.id===Store.pKey());if(!me)break;
-      Study.log('sent',me.sent?0:1);Store.db.doc('checkins/'+m.id+'_'+me.id).update({sent:!me.sent,updatedAt:Date.now()}).then(()=>toast(me.sent?'취소했어요':'송금했다고 알렸어요. 총무가 확인하면 초록색으로 바뀌어요')).catch(()=>toast('저장하지 못했어요'));break}
+      Study.log('sent',me.sent?0:1);Store.db.doc('checkins/'+m.id+'_'+me.id).update({sent:!me.sent,updatedAt:Date.now()}).then(()=>toast(me.sent?'취소했어요':'송금했다고 총무님께 알렸어요!')).catch(()=>toast('저장하지 못했어요'));break}
     case 'join1':{const n=(state.joinName||document.getElementById('jName').value||'').trim();if(!n){document.getElementById('jErr').hidden=false;document.getElementById('jName').focus();break}
       state.joinName=n;const me=myCk();state.ans=state.ans||(me?{rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[]}:{rounds:[roundOf(state.meet)],personal:[]});
       const m=state.meet;
@@ -1417,6 +1437,8 @@ window.__bbk={Store,state,researchRows,Study,compute};
   state.profile=await Store.loadProfile();
   const h=location.hash.slice(1);
   if(h.startsWith('m-')&&h.length>3){state.ans=null;shell.innerHTML='<div class="loading">모임을 불러오는 중…</div>';openMeet(h.slice(2));return}
+  /* 이미 가입한 사람(두 번째 방문부터)은 온보딩을 건너뛰고 홈으로 */
+  if(state.profile&&state.profile.nickname){go('home');return}
   state.view='onb1';render();
 })();
 
