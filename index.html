@@ -322,6 +322,33 @@ textarea.sf{height:auto;min-height:144px;padding:14px 16px;font-size:14px;line-h
 .rdet summary::after{content:"펼쳐 보기 ▾";font-size:12px;font-weight:600;color:var(--sub)}
 .rdet[open] summary::after{content:"접기 ▴"}
 .rdet[open] .rcards{margin-top:10px}
+/* 정산 영수증 그래픽 */
+.rcpt{position:relative;background:#FFFEFA;color:#1B1D1F;border-radius:14px 14px 0 0;padding:20px 18px 14px;box-shadow:0 2px 10px rgba(27,29,31,.08);margin-bottom:14px;
+  font-variant-numeric:tabular-nums;display:flex;flex-direction:column;gap:10px}
+.rcpt::after{content:"";position:absolute;left:0;right:0;bottom:-10px;height:10px;
+  background:radial-gradient(circle at 8px 0,#FFFEFA 7px,transparent 7.5px) 0 0/16px 10px repeat-x}
+.rc-h{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center}
+.rc-h b{font-size:17px;letter-spacing:-.01em}
+.rc-logo{width:44px;height:44px;display:block}
+.rc-logo svg{width:100%;height:100%}
+.rc-cut{border-top:1.5px dashed #C9CCCF;margin:2px 0}
+.rc-sec{display:flex;flex-direction:column;gap:6px}
+.rc-sh{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#686C70;letter-spacing:.02em}
+.rl{display:flex;align-items:flex-end;gap:6px;font-size:14px;line-height:20px}
+.rl-l{min-width:0;overflow-wrap:anywhere;display:flex;flex-direction:column}
+.rl-l small{font-size:11px;color:#686C70;font-weight:500}
+.rl-l small.inl{display:inline;margin-left:4px}
+.rl-d{flex:1;min-width:12px;border-bottom:1.5px dotted #C9CCCF;margin-bottom:5px}
+.rl-r{flex:none;font-weight:600}
+.rl.me{background:#E7F4EE;margin:0 -8px;padding:4px 8px;border-radius:8px}
+.rl.tot{font-size:17px}
+.rc-me{font-style:normal;font-size:10px;font-weight:700;background:#247A66;color:#fff;border-radius:6px;padding:1px 5px;margin-left:4px;vertical-align:2px}
+.rc-rules{display:flex;flex-direction:column;gap:2px;font-size:13px;background:#F1F2F3;border-radius:10px;padding:8px 10px}
+.rc-f{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:4px}
+.rc-bar{width:70%;height:34px;background:repeating-linear-gradient(90deg,#1B1D1F 0 2px,transparent 2px 4px,#1B1D1F 4px 5px,transparent 5px 8px,#1B1D1F 8px 11px,transparent 11px 13px)}
+.sheet .rcpt{margin-top:4px}
+.rl-n{display:inline}
+.rc-tag{font-style:normal;font-size:11px;color:#686C70;margin-left:6px;font-weight:500}
 </style>
 
 <div class="beta-pill" aria-label="베타 버전">BETA · 베타 버전</div>
@@ -1097,6 +1124,7 @@ function r07(){
       ${!mine&&!org?'<div class="cap">아직 체크인하지 않았어요. 체크인하면 내 금액이 보여요.</div>':''}
       ${changed?`<div class="cap note">처음 금액 ${won(R.amountFirst)}원 → 내 상황을 반영해 ${won(amt)}원이 되었어요.</div>`:''}
       ${bPending?`<div class="callout"><b>아직 끝나지 않았어요</b><span class="cap">지금 금액은 ‘예외 없음’ 기준이에요. 오늘 나에게 해당하는 상황(술, 참석 차수 등)이 있다면 알려주세요. 금액을 다시 계산해요.</span></div>`:''}
+      <button class="btn line rc-open" data-act="receipt">🧾 정산 영수증 보기</button>
       <details class="rdet"><summary>${esc(m.payer||'총무')}님이 정한 정산 기준 · ${rulesOf(m).length}개 <span class="cap">${rulesOf(m).map(r=>r.short).join(' · ')||'모두 똑같이 N빵'}</span></summary><div class="rcards">${ruleCards(rulesOf(m))}</div></details>
       <div class="grow"></div>
       ${mine&&!bPending&&!isClosed(m)&&questions(m).length?'<button class="textlink u" data-act="editans">내 답변 고치기</button>':''}
@@ -1119,6 +1147,33 @@ function r07(){
   </section>`;
 }
 function acctNum(a){const x=(a||'').match(/\d[\d\- ]{5,}\d/);return x?x[0].replace(/\s+/g,''):(a||'')}
+/* ---------- 정산 영수증 그래픽: 영수증 내용을 읽기 쉽게 다시 그린 것 ---------- */
+function receiptHTML(m){
+  const c=compute(m,state.cks),myKey=Store.pKey(),r6=ruleOn(m,'r6');
+  const items=m.items||[];const sum=t=>items.filter(i=>(i.type||'common')===t).reduce((a,i)=>a+(+i.amount||0),0);
+  const mine=(state.cks.find(k=>k.pkey===myKey)||{}).personal||[];
+  const pick=id=>state.cks.filter(k=>(k.personal||[]).includes(id)).length;
+  const G=[['common','음식'],['drink','술'],['personal','개별 메뉴'],['discount','할인']].filter(([t])=>items.some(i=>(i.type||'common')===t));
+  const total=items.reduce((a,i)=>a+((i.type==='discount'?-1:1)*(+i.amount||0)),0);
+  const line=(l,r,cls='',sub='')=>`<div class="rl ${cls}"><span class="rl-l"><span class="rl-n">${l}</span>${sub?`<small>${sub}</small>`:''}</span><span class="rl-d" aria-hidden="true"></span><span class="rl-r num">${r}</span></div>`;
+  return `<article class="rcpt" aria-label="정산 영수증">
+    <header class="rc-h"><span class="rc-logo">${BREAD[0]||''}</span><b>빵끗 정산 영수증</b><span class="cap">${esc(titleOf(m))}</span>
+      <span class="cap">${esc((m.date||'').replace(/-/g,'.'))} · 결제 ${esc(m.payer||'총무')}</span></header>
+    <div class="rc-cut"></div>
+    ${G.map(([t,label])=>`<section class="rc-sec"><div class="rc-sh"><span>${label}</span><span class="num">${t==='discount'?'−':''}${won(sum(t))}원</span></div>
+      ${items.filter(i=>(i.type||'common')===t).map(i=>{const my=r6&&mine.includes(i.id);const n=r6&&t!=='discount'?pick(i.id):0;
+        return line(`${esc(i.name||'이름 없음')}${my?'<i class="rc-me">나</i>':''}`,`${t==='discount'?'−':''}${won(i.amount)}`,my?'me':'',r6&&t!=='discount'?(n?n+'명이 나눠요':'아직 아무도 안 골랐어요 · 모두 나눔'):'')}).join('')}</section>`).join('')}
+    <div class="rc-cut"></div>
+    ${line('<b>합계</b>',`<b>${won(total)}원</b>`,'tot')}
+    <div class="rc-rules"><span class="cap">정산 기준</span><span>${rulesOf(m).map(r=>r.short).join(' · ')||'모두 똑같이 N빵'}</span></div>
+    <div class="rc-cut"></div>
+    <section class="rc-sec"><div class="rc-sh"><span>나눈 결과</span><span class="cap">${c.ppl.length}명</span></div>
+      ${c.ppl.map(p=>{const me=p.id===myKey;const tag=p.id===c.payerId?'결제':p.pending?'미응답':'';
+        return line(`${esc(p.name)}${me?'<i class="rc-me">나</i>':''}${tag?`<em class="rc-tag">${tag}</em>`:''}`,`${won(c.rows[p.id].amount)}원`,me?'me':'')}).join('')}</section>
+    <footer class="rc-f"><div class="rc-bar" aria-hidden="true"></div><span class="cap">빵끗 · BETA · ${esc(m.id)}</span></footer>
+  </article>`;
+}
+function receiptSheet(){sheet(`${receiptHTML(state.meet)}<button class="btn line" data-close>닫기</button>`);Study.log('receipt_open')}
 function payInfo(m,c,org,meP){
   const myAmt=!org&&meP&&meP.id!==c.payerId?c.rows[meP.id].amount:0;
   const sent=!org&&meP&&meP.sent;
@@ -1415,6 +1470,7 @@ shell.addEventListener('click',e=>{
       b.disabled=true;Study.assign(state.meet,true).then(()=>go(myCk()?'me':'join'));break}
     case 'consentNo':Study.assign(state.meet,false).then(()=>go(myCk()?'me':'join'));break;
     case 'svsubmit':svSubmit();break;
+    case 'receipt':receiptSheet();break;
     case 'topay':state.tab='pay';go('me');break;
     case 'tojoin':go('join');break;
     case 'demoagain':ssSet('bbk.pkey.demo',rid('p'));state.joinName='';state.ans=null;go('join');break;
