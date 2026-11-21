@@ -350,6 +350,8 @@ textarea.sf{height:auto;min-height:144px;padding:14px 16px;font-size:14px;line-h
 .rl-n{display:inline}
 .rc-tag{font-style:normal;font-size:11px;color:#686C70;margin-left:6px;font-weight:500}
 .svprog{margin-left:auto;color:var(--ok)!important;font-variant-numeric:tabular-nums}
+
+.page-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;position:relative;z-index:2}.page-controls .back{min-height:40px}
 </style>
 
 <div class="beta-pill" aria-label="베타 버전">BETA · 베타 버전</div>
@@ -464,7 +466,7 @@ const IC={
 
 /* ================= 규칙 ================= */
 const RULES=[
- {id:'r1',name:'1차는 1차끼리!',short:'1차는 1차끼리',lb:'1차는<br>1차끼리!',desc:'각 차수의 비용은<br>함께한 사람끼리만 나눠요.',tip:'이번 차수에 없던 사람은 이 정산에서 빠져요',d:0},
+ {id:'r1',name:'참여한 차수별로 나누기',short:'참여한 차수별로 나누기',lb:'참여한 차수별로<br>나누기',desc:'각 차수의 비용은<br>함께한 사람끼리만 나눠요.',tip:'이번 차수에 없던 사람은 이 정산에서 빠져요',d:0},
  {id:'r2',name:'식사 + 술 함께 공평하게',short:'식사+술 함께 공평하게',lb:'식사 + 술<br>함께 공평하게',desc:'음식과 술을 나누지 않고<br>모두 똑같이 나눠요.',tip:'음식과 술을 구분하지 않고 모두 똑같이 나눠요',d:-.13},
  {id:'r3',name:'술 안 마시면 술값은 빼요',short:'술 안 마시면 술값 제외',lb:'술 안 마시면<br>술값은 빼요',desc:'술값은 술을 마신 사람끼리,<br>음식값은 함께 나눠요.',tip:'술 안 마신 사람은 술값을 빼고 나눠요',d:-.27},
  {id:'r4',name:'늦게 왔다면 참여한 차수만',short:'늦게 왔다면 참여한 차수만',lb:'늦게 왔다면<br>참여한 차수만',desc:'늦게 왔다면<br>참여한 차수부터 나눠요.',tip:'참여자가 체크인할 때 참석한 차수를 골라요',d:-.05},
@@ -474,11 +476,13 @@ const RULES=[
  {id:'r8',name:'생일 주인공은 오늘 무료!',short:'생일 주인공은 무료',lb:'생일 주인공은<br>오늘 무료!',desc:'생일 주인공 몫은<br>나머지가 함께 내요.',tip:'생일인 사람 몫은 나머지가 나눠 내요',d:-.33},
  {id:'r9',name:'잔돈은 총무가 부담해요',short:'잔돈은 총무 부담',lb:'잔돈은 총무가<br>부담해요',desc:'100원 아래 잔돈은<br>총무가 부담해요.',tip:'100원 아래 끝자리는 내려서 받고, 차이는 결제자가 내요',d:-.47}
 ];
+RULES.push({id:'all',name:'차수 구분 없이 나누기',short:'차수 구분 없이',lb:'차수 구분 없이<br>나누기',desc:'모든 차수의 비용을 합쳐 나눠요.',d:0});
 const ruleOn=(m,id)=>(m.rules||[]).includes(id);
 const rulesOf=m=>RULES.filter(r=>ruleOn(m,r.id));
 const ITEM_TYPES={common:'음식',drink:'술',personal:'개별',discount:'할인'};
 function itemTypes(m){const t=['common','drink'];if(ruleOn(m,'r7'))t.push('discount');return t}
-const roundOf=m=>{const x=/(\d)\s*차/.exec(m.place||'');return x?+x[1]:1};
+const roundsOf=m=>Array.from({length:m.roundCount||1},(_,i)=>i+1);
+const roundOf=m=>{if(m.currentRound)return m.currentRound;const x=/(\d)\s*차/.exec(m.place||'');return x?+x[1]:1};
 
 /* ================= 유틸 ================= */
 const won=n=>Math.round(n).toLocaleString('ko-KR');
@@ -494,10 +498,11 @@ const SAFE=/^[A-Za-z0-9_\-.~:@+]{1,120}$/;
 function toast(msg){document.querySelectorAll('.toast').forEach(t=>t.remove());const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2800)}
 function sheet(html,bind){
   const s=document.createElement('div');s.className='scrim';
-  s.innerHTML='<div class="sheet" role="dialog" aria-modal="true">'+html+'</div>';
+  s.innerHTML='<div class="sheet" role="dialog" aria-modal="true"><div class="page-controls"><button class="back" data-close>‹ 뒤로</button><button class="back" data-sheet-home>홈</button></div>'+html+'</div>';
   s.addEventListener('click',e=>{if(e.target===s)s.remove()});
   document.body.appendChild(s);const close=()=>s.remove();
   s.querySelectorAll('[data-close]').forEach(b=>b.onclick=close);
+  s.querySelector('[data-sheet-home]').onclick=returnHome;
   bind&&bind(s,close);return close;
 }
 async function copy(text,msg){
@@ -613,6 +618,21 @@ function noteOf(m,p){
   return NOTE[p.status]||'';
 }
 function compute(m,cks){
+  if(ruleOn(m,'r1') && m.roundCount>1 && !m.currentRound){
+    const sum=compute({...m,currentRound:1,items:[]},cks);
+    const parts=roundsOf(m).map(n=>compute({...m,currentRound:n,items:m.items.filter(i=>(i.round||1)===n)},cks));
+    for(const key of ['total','common','drink','discount','personalTotal','nb'])sum[key]=parts.reduce((a,p)=>a+p[key],0);
+    for(const p of sum.ppl){
+      const rows=parts.map(part=>part.rows[p.id]);
+      sum.rows[p.id]={amount:rows.reduce((a,r)=>a+r.amount,0),exact:rows.reduce((a,r)=>a+r.exact,0),why:rows.flatMap((r,i)=>r.why.map(w=>(i+1)+'차 · '+w))};
+      if(parts.some(part=>part.rows[p.id].amount>0)&&['late','early'].includes(p.status))p.status='base';
+    }
+    sum.owed=sum.ppl.filter(p=>p.id!==sum.payerId&&sum.rows[p.id].amount>0);
+    sum.paid=sum.owed.filter(p=>p.paid);
+    sum.received=sum.paid.reduce((a,p)=>a+sum.rows[p.id].amount,0);
+    sum.toReceive=sum.owed.reduce((a,p)=>a+sum.rows[p.id].amount,0);
+    return sum;
+  }
   const {ppl,payerId}=peopleFor(m,cks);
   const r2=ruleOn(m,'r2'),r3=ruleOn(m,'r3')&&!r2,r6=ruleOn(m,'r6'),r7=ruleOn(m,'r7'),r8=ruleOn(m,'r8'),r9=ruleOn(m,'r9');
   const out=p=>p.status==='late'||p.status==='early';
@@ -685,13 +705,68 @@ function msgPerson(m,c,p){
 
 /* ================= 상태 & 라우팅 ================= */
 const state={view:'onb1',profile:null,draft:null,ruleSel:null,mid:null,meet:null,cks:[],tab:'est',subs:[],joinName:'',ans:null,myMeets:[],homeFilter:'all',open:false};
-function unsubAll(){state.subs.forEach(u=>{try{u()}catch(e){}});state.subs=[]}
+let meetGeneration=0;
+function unsubAll(){meetGeneration++;state.subs.forEach(u=>{try{u()}catch(e){}});state.subs=[]}
+// Keep drafts in memory. Browser history contains only a route index.
+const visits=[];
+let position=-1;
+const meetingViews=['org','join','join2','me','consent','survey','thanks','waiting'];
+function captureVisit(view){
+  return {view,mid:state.mid,draft:state.draft,ruleSel:state.ruleSel,editRules:state.editRules,
+    ans:state.ans,joinName:state.joinName,tab:state.tab,activeRound:state.activeRound,
+    inputs:Object.fromEntries([...shell.querySelectorAll('input[id]:not([type=file]):not([type=checkbox])')].map(el=>[el.id,el.value])),photos:state.photos,sv:state.sv,study:Study.R,demo:ssGet('bbk.pkey.demo')};
+}
 function go(view){
+  const url=meetingViews.includes(view)&&state.mid?'#m-'+state.mid:location.pathname+location.search;
+  const visit=captureVisit(view);
+  if(position<0 || visits[position].view!==view || visits[position].mid!==state.mid || (['org','me'].includes(view)&&visits[position].tab!==state.tab)){
+    const first=position<0;
+    visits.splice(++position,Infinity,visit);
+    history[first?'replaceState':'pushState']({bbk:position},'',url);
+  }else visits[position]=visit;
   state.view=view;
-  try{const want=['org','join','join2','me','consent','survey','thanks'].includes(view)&&state.mid?'#m-'+state.mid:'';if(location.hash!==want)history.replaceState(null,'',want||location.pathname+location.search)}catch(e){}
   render();window.scrollTo(0,0);
   if(Study.R&&state.mid&&view!=='org')Study.log('view',view);
 }
+function back(){
+  if(position>0||history.length>1){history.back();return}
+  go(state.view==='home'?'onb1':'home');
+}
+function restoreVisit(index){
+  document.querySelectorAll('.scrim').forEach(s=>s.remove());
+  const v=visits[index];if(!v)return;
+  if(visits[position]&&visits[position].view===state.view)visits[position]=captureVisit(state.view);
+  position=index;
+  const previousMid=state.mid;
+  const {study,demo,inputs,...fields}=v;
+  Object.assign(state,fields);
+  if(demo)ssSet('bbk.pkey.demo',demo);else sessionStorage.removeItem('bbk.pkey.demo');
+  Study.R=study;
+  if((meetingViews.includes(v.view)||v.view==='items'||v.editRules&&v.view==='rules')&&v.mid&&
+      (previousMid!==v.mid||!state.meet||!state.subs.length)){
+    openMeet(v.mid,v.view,v.tab,true);return;
+  }
+  if(!meetingViews.includes(v.view)&&!['items','rules'].includes(v.view))unsubAll();
+  render();for(const [id,value] of Object.entries(inputs||{})){const el=document.getElementById(id);if(el)el.value=value}
+  window.scrollTo(0,0);
+}
+window.addEventListener('popstate',e=>{if(Number.isInteger(e.state?.bbk))restoreVisit(e.state.bbk)});
+function returnHome(){
+  document.querySelectorAll('.scrim').forEach(dialog=>dialog.remove());
+  state.mid=null;
+  Study.R=null;
+  go('home');
+}
+function addBackControl(){
+  const page=shell.querySelector('section.view');if(!page||page.querySelector('[data-act="back"]'))return;
+  const old=page.querySelector('button.back[data-nav]');
+  const controls=document.createElement('div');
+  controls.className='page-controls';
+  controls.innerHTML='<button class="back" data-act="back">‹ 뒤로</button>';
+  if(state.view!=='home')controls.insertAdjacentHTML('beforeend','<button class="back" data-act="tohome" aria-label="홈으로 이동">홈</button>');
+  if(old)old.replaceWith(controls);else page.prepend(controls);
+}
+new MutationObserver(addBackControl).observe(shell,{childList:true,subtree:true});
 const myName=()=>(state.profile&&state.profile.nickname)||'';
 const myCk=()=>state.cks.find(c=>c.pkey===Store.pKey());
 const isOwnerOf=m=>m&&m.ownerKey===Store.myKey();
@@ -700,7 +775,8 @@ function render(){
   const v=state.view;
   shell.classList.toggle('clip',v==='onb1');
   shell.classList.toggle('wide',['onb1','onb2','onb3','create','rules','rulecheck','link','home','mine','msglist'].includes(v));
-  ({onb1:r01,onb2:r02,onb3:r03,create:r04,rules:r041,rulecheck:r042,form:r05,items:r051,link:r06,org:r07,me:r07,join:rJoin,join2:rJoin2,consent:rConsent,survey:rSurvey,thanks:rThanks,home:r00,mine:rMine,msglist:rMsgList,missing:rMissing}[v]||r00)();
+  ({waiting:()=>{shell.innerHTML=`<section class="view"><h1 class="title">${esc(state.meet.title)}</h1>${ruleCards(rulesOf(state.meet))}<p class="lead">모임이 끝나면 같은 링크에서 정산해요. 정산 요청 후 1시간 안에 답해주세요.</p></section>`},onb1:r01,onb2:r02,onb3:r03,create:r04,rules:r041,rulecheck:r042,form:r05,items:r051,link:r06,org:r07,me:r07,join:rJoin,join2:rJoin2,consent:rConsent,survey:rSurvey,thanks:rThanks,home:r00,results:rResults,mine:rMine,msglist:rMsgList,missing:rMissing}[v]||r00)();
+  if(['consent','join','join2','me'].includes(v)&&state.meet?.deadline)shell.querySelector('section')?.insertAdjacentHTML('afterbegin',`<div class="card"><b>답변 마감 · ${hhmm(state.meet.deadline)}</b><span>정산 요청 후 1시간 안에 답하지 않으면 ‘예외 없음’으로 계산해요.</span></div>`);
 }
 
 /* ---------- 01·02·03 온보딩 ---------- */
@@ -773,23 +849,23 @@ function r041(){
   shell.innerHTML=`<section class="view onb" style="align-items:stretch">
     <button class="back" data-nav="create">‹ 뒤로</button>
     <h1 class="h1" style="text-align:left;padding-left:5px;margin-top:clamp(0px,4vh,44px)">이 모임의<br>정산 기준을 골라주세요</h1>
-    <p class="lead" style="text-align:left;padding-left:7px;margin-top:-10px">정산 기준은 링크를 보낸 뒤엔 바꿀 수 없어요</p>
+    <p class="lead" style="text-align:left;padding-left:7px;margin-top:-10px">모임을 만든 뒤에도 총무가 기준을 수정할 수 있어요</p>
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:-8px">
-      <span class="cap" style="font-size:12px">해당하는 기준을 모두 골라주세요</span>
+      <span class="cap" style="font-size:12px">차수 계산 방식 하나와 필요한 추가 기준을 골라주세요</span>
       <span class="cap" style="font-size:12px"><b style="color:var(--ink)" id="ruleCount">${sel.length}</b> 개 선택</span></div>
-    <div class="rulegrid" role="group" aria-label="정산 기준">${RULES.map((r,i)=>`
+    <div class="rulegrid" role="group" aria-label="정산 기준">${[RULES.at(-1),...RULES.filter(r=>!['all','r4','r5'].includes(r.id))].map((r,i)=>`
       <button class="rule" data-rule="${r.id}" aria-pressed="${sel.includes(r.id)}" aria-label="${r.name}">
-        <span class="icw"><span class="ic ${i%2?'r':''}" style="animation-delay:${(r.d*6).toFixed(2)}s">${BREAD[i]}</span><span class="ck" aria-hidden="true">✓</span></span>
+        <span class="icw"><span class="ic ${i%2?'r':''}" style="animation-delay:${(r.d*6).toFixed(2)}s">${BREAD[i%BREAD.length]}</span><span class="ck" aria-hidden="true">✓</span></span>
         <span class="lb">${r.lb}</span></button>`).join('')}</div>
     <p class="cap" style="text-align:center;font-size:12px;margin-top:-4px">빵을 한 번 더 누르면 선택이 해제돼요</p>
     <div class="grow"></div>
-    <button class="btn" data-act="rulecheck">+ 새 모임 정산하기</button>
+    <button class="btn" data-act="${state.editRules?'saverules':'toform'}">${state.editRules?'기준 저장하기':'다음 · 모임 이름 입력'}</button>
   </section>`;
 }
 /* ---------- 규칙 카드 (04-2 · 체크인 · 07 공통) ---------- */
 function ruleCards(rules){
   if(!rules.length)return `<div class="rcard"><span class="ri"></span><span><b>모두 똑같이 N빵</b><span class="cap">따로 정한 기준 없이 똑같이 나눠요.</span></span></div>`;
-  return rules.map(r=>{const i=RULES.indexOf(r);return `<div class="rcard"><span class="ri"><span class="ic ${i%2?'r':''}" style="animation-delay:${(r.d*6).toFixed(2)}s">${BREAD[i]}</span></span><span class="rt"><b>${r.name}</b><span class="cap">${r.desc}</span></span></div>`}).join('');
+  return rules.map(r=>{const i=RULES.indexOf(r);return `<div class="rcard"><span class="ri"><span class="ic ${i%2?'r':''}" style="animation-delay:${(r.d*6).toFixed(2)}s">${BREAD[i%BREAD.length]}</span></span><span class="rt"><b>${r.name}</b><span class="cap">${r.desc}</span></span></div>`}).join('');
 }
 /* ---------- 04-2 규칙 확인 ---------- */
 function r042(){
@@ -801,7 +877,7 @@ function r042(){
     <div class="label" style="margin-top:18px;color:var(--sub)">정산 기준 · ${rules.length}개</div>
     <div class="rcards">${ruleCards(rules)}</div>
     <div class="grow"></div>
-    <p class="cap" style="font-size:12px;line-height:19px">정산 기준은 링크를 보낸 뒤엔 바꿀 수 없어요.<br>참여자 각자의 답변은 마감 전까지 고칠 수 있어요.</p>
+    <p class="cap" style="font-size:12px;line-height:19px">모임을 만든 뒤에도 총무가 기준을 수정할 수 있어요.<br>참여자 각자의 답변은 마감 전까지 고칠 수 있어요.</p>
     <button class="btn" data-act="toform">확인했어요</button>
   </section>`;
 }
@@ -809,56 +885,69 @@ function r042(){
 function r05(){
   const d=state.draft;
   shell.innerHTML=`<section class="view">
-    <div class="toprow"><button class="back" data-nav="rulecheck">‹ 뒤로</button><span class="label" style="color:var(--sub)">1 / 2</span></div>
+    <div class="toprow"><button class="back" data-nav="rules">‹ 뒤로</button><span class="label" style="color:var(--sub)"></span></div>
     <div style="display:flex;flex-direction:column;gap:6px"><h1 class="title">모임 만들기</h1><p class="subt">정산을 시작할 모임 정보를 입력해 주세요.</p></div>
     <section class="card"><div class="ch sub">모임 정보</div>
       <div class="row2"><label class="f">모임 이름<input class="fi" id="f-title" data-f="title" value="${esc(d.title)}" placeholder="예: 팀 회식"></label>
-        <label class="f">차수 · 장소<input class="fi" id="f-place" data-f="place" value="${esc(d.place)}" placeholder="예: 1차 횟집"></label></div>
-      <div class="row2"><label class="f">날짜<input class="fi" type="date" id="f-date" data-f="date" value="${esc(d.date)}"></label>
-        <label class="f">결제한 사람<input class="fi" id="f-payer" data-f="payer" value="${esc(d.payer)}" placeholder="예: 김연희"></label></div>
+</div>
       <div class="row2"><label class="f" style="flex:2 1 0">받을 곳 (계좌·카카오페이 안내, 선택)<input class="fi" id="f-account" data-f="account" value="${esc(d.account)}" placeholder="예: 카카오뱅크 3333-00-0000000"></label>
-        <label class="f" style="flex:1 1 0">모임 인원 (선택)<input class="fi num" id="f-expected" data-f="expected" inputmode="numeric" value="${d.expected||''}" placeholder="예: 5"></label></div>
-      <div class="cap">모임 인원은 결제한 사람을 포함해 세요. 잘 모르면 비워 두세요. 결제한 사람도 체크인할 때 같은 이름을 쓰면 한 사람으로 계산돼요.</div>
-    </section>
-    <section class="card"><div class="ch sub">답변 마감 · 링크를 만든 뒤 1시간</div>
-      <div class="cap">1시간 안에 답하지 않은 사람은 ‘예외 없음’으로 계산하고, 금액이 확정돼요. 모임 인원을 적어야 답하지 않은 사람 몫까지 미리 나눌 수 있어요.</div>
-      <label class="agree"><input type="checkbox" id="f-study" ${d.study!==false?'checked':''}><span>베타 테스트 모드 · 참여자에게 연구 동의와 3분 설문을 받아요</span></label>
+</div></section><section class="card">      <label class="agree"><input type="checkbox" id="f-study" ${d.study!==false?'checked':''}><span>베타 테스트 모드 · 참여자에게 연구 동의와 3분 설문을 받아요</span></label>
     </section>
     <div class="cap err" id="formErr" hidden></div>
     <div class="grow"></div>
-    <button class="btn" data-act="toitems" style="border-radius:27px">다음 · 영수증 추가하기</button>
+    <button class="btn" data-act="toitems" style="border-radius:27px">모임 링크 만들기</button>
   </section>`;
 }
 /* ---------- 05-1 영수증 항목 ---------- */
 function r051(){
   const d=state.draft, types=itemTypes(d);
+  const payers=d.roundPayers||(d.roundPayers={});
+  const round=state.activeRound;
+  const other=Object.hasOwn(payers,round);
   const t=state.itemType&&types.includes(state.itemType)?state.itemType:'common';
   const total=d.items.reduce((a,i)=>a+(i.type==='discount'?-1:1)*(+i.amount||0),0);
   shell.innerHTML=`<section class="view">
-    <div class="toprow"><button class="back" data-nav="form">‹ 뒤로</button><span class="label" style="color:var(--sub)">2 / 2</span></div>
+    <div class="toprow"><button class="back" data-nav="org">‹ 모임으로</button><span class="label" style="color:var(--sub)"></span></div>
     <div style="display:flex;flex-direction:column;gap:6px"><h1 class="title">영수증 항목 추가하기</h1><p class="subt">촬영하거나 사진을 불러오고, 직접 입력해요.</p></div>
-    <section class="card"><div><b class="h15">영수증으로 빠르게 추가</b><div class="cap" style="margin-top:6px">영수증 전체가 잘 보이도록 준비해 주세요.</div></div>
+    <section class="card"><div class="ch">차수 선택</div><div class="row2" style="flex-wrap:wrap">${roundsOf(d).map(n=>`<button class="btn small ${state.activeRound===n?'':'line'}" data-round="${n}">${n}차</button>`).join('')}<button class="btn small line" data-act="addround">+ 차수 추가</button></div>
+      <label class="f">모임 인원 (결제자 포함)<input class="fi" data-f="expected" inputmode="numeric" value="${d.expected||''}"></label>
+      <div class="f">결제자 · ${other?esc(payers[round]||'다른 사람'):'나'}</div>
+      <label class="agree"><input id="otherPayer" type="checkbox" ${other?'checked':''}>다른 사람이 결제했어요</label>
+      <label class="f" id="payerField" ${other?'':'hidden'}>${round}차 결제자 이름<input class="fi" id="roundPayer" value="${esc(payers[round]||'')}"></label></section>
+    <section class="card"><div><b class="h15">${state.activeRound}차 영수증 빠르게 추가</b><div class="cap" style="margin-top:6px">영수증 전체가 잘 보이도록 준비해 주세요.</div></div>
       <div class="row2 g10">
         <label class="tile" for="camIn">${IC.camera}<b>카메라</b><span class="cap">${(state.photos||[]).length?'한 장 더 찍기':'지금 촬영하기'}</span></label>
         <label class="tile" for="galIn">${IC.photo}<b>사진</b><span class="cap">여러 장 선택 가능</span></label></div>
       <input type="file" id="camIn" accept="image/*" capture="environment" hidden>
       <input type="file" id="galIn" accept="image/*" multiple hidden>
-      ${(state.photos||[]).length?`<div class="thumbs">${state.photos.map((ph,i)=>`<div class="thumb"><img src="${ph.url}" alt="영수증 ${i+1}"><span class="tb ${ph.st}">${{wait:'대기 중',reading:'읽는 중…',done:ph.n+'개 추가',fail:'직접 입력'}[ph.st]}</span><button class="xbtn" data-pdel="${ph.id}" aria-label="영수증 ${i+1} 지우기">×</button></div>`).join('')}</div>
+      ${(state.photos||[]).length?`<div class="thumbs">${state.photos.map((ph,i)=>`<div class="thumb"><img src="${ph.url}" alt="${ph.round}차 영수증 ${i+1}"><span class="tb ${ph.st}">${{wait:'대기 중',reading:'읽는 중…',done:ph.n+'개 추가',fail:'직접 입력'}[ph.st]}</span><button class="xbtn" data-pdel="${ph.id}" aria-label="영수증 ${i+1} 지우기">×</button></div>`).join('')}</div>
       <div class="cap">영수증이 여러 장이거나 길면 나눠서 찍어도 돼요. 사진을 지우면 그 사진에서 넣은 항목도 함께 빠져요.</div>`:''}
       <div class="cap" id="ocrNote" ${state.ocr?'':'hidden'}>${esc(state.ocr||'')}</div>
     </section>
-    <section class="card"><div><b class="h15">직접 입력하기</b><div class="cap" style="margin-top:6px">영수증이 없어도 항목별로 추가할 수 있어요.</div></div>
+    ${Object.entries(d.receipts||{}).filter(([,r])=>r.round===state.activeRound).map(([id,r],i)=>`<section class="card"><b>${r.round}차 영수증 ${i+1}</b>${[['place','장소'],['date','날짜']].map(([key,label])=>`<label class="f">${label}<input class="fi" data-receipt="${esc(id)}" data-field="${key}" value="${esc(r[key])}"></label>`).join('')}</section>`).join('')}
+    <details class="card" id="manualItems" ${state.manualRound===round?'open':''}><summary class="h15">직접 입력하기</summary><div><div class="cap" style="margin-top:6px">영수증이 없어도 항목별로 추가할 수 있어요.</div></div>
       <label class="fl2" for="iName">항목명</label><input class="in2" id="iName" placeholder="예: 모둠회, 맥주" autocomplete="off">
       <div class="row2 g10" style="align-items:end"><div style="flex:0 0 46%;display:flex;flex-direction:column;gap:6px"><label class="fl2" for="iAmt">금액 (원)</label><input class="in2 num" id="iAmt" inputmode="numeric" placeholder="금액 입력" autocomplete="off"></div>
         <div style="flex:1;display:flex;flex-direction:column;gap:6px"><span class="fl2">분류</span><div class="seg2" role="radiogroup" aria-label="분류">${types.map(k=>`<button role="radio" aria-checked="${k===t}" data-itype="${k}">${ITEM_TYPES[k]}</button>`).join('')}</div></div></div>
       <button class="btn softb" data-act="additem">+ 항목 추가</button>
       <div class="cap">${typeHint(d)}</div>
-    </section>
+    </details>
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px"><b class="h15">추가된 항목 · ${d.items.length}개</b><b class="label num">합계 ${won(Math.max(0,total))}원</b></div>
     ${d.items.length?Object.keys(ITEM_TYPES).filter(k=>d.items.some(i=>(i.type||'common')===k)).map(k=>{const its=d.items.filter(i=>(i.type||'common')===k);const sub=its.reduce((a,i)=>a+(+i.amount||0),0);
-      return `<div class="igroup"><div class="ighead"><span class="badge ${k}">${ITEM_TYPES[k]}</span><span class="cap">${its.length}개</span><b class="num">${k==='discount'?'−':''}${won(sub)}원</b></div><div class="ilist">${its.map(i=>`<div class="irow"><input class="iname-in" data-iname="${i.id}" value="${esc(i.name||'')}" placeholder="이름 없음" aria-label="항목 이름"><span class="num iamt">${i.type==='discount'?'−':''}${won(i.amount)}원</span><button class="xbtn" data-idel="${i.id}" aria-label="${esc(i.name)} 삭제">×</button></div>`).join('')}</div></div>`}).join(''):'<div class="ilist"><div class="empty-in">아직 추가한 항목이 없어요.<br>영수증을 불러오거나 직접 추가해 주세요.</div></div>'}
-    <button class="btn" data-act="makemeet" ${d.items.length?'':'disabled'}>다음 · 체크인 링크 만들기</button>
+      return `<div class="igroup"><div class="ighead"><span class="badge ${k}">${ITEM_TYPES[k]}</span><span class="cap">${its.length}개</span><b class="num">${k==='discount'?'−':''}${won(sub)}원</b></div><div class="ilist">${its.map(i=>`<div class="irow"><small>${i.round||1}차</small><input class="iname-in" data-iname="${i.id}" value="${esc(i.name||'')}" placeholder="이름 없음" aria-label="항목 이름"><span class="num iamt">${i.type==='discount'?'−':''}${won(i.amount)}원</span><button class="xbtn" data-idel="${i.id}" aria-label="${esc(i.name)} 삭제">×</button></div>`).join('')}</div></div>`}).join(''):'<div class="ilist"><div class="empty-in">아직 추가한 항목이 없어요.<br>영수증을 불러오거나 직접 추가해 주세요.</div></div>'}
+    <button class="btn" data-act="requestsettle" ${d.items.length&&!photoBusy?'':'disabled'}>${d.preparing?'영수증 저장하고 정산 요청하기':'영수증 변경사항 저장하기'}</button>
   </section>`;
+  const payerInput=document.getElementById('roundPayer');
+  const payerLabel=document.getElementById('payerField');
+  const payerTitle=payerLabel.parentElement.querySelector('div.f');
+  document.getElementById('otherPayer').onchange=e=>{
+    payerLabel.hidden=!e.target.checked;
+    if(e.target.checked){payers[round]=payerInput.value.trim();payerInput.focus()}
+    else{delete payers[round];payerInput.value=''}
+    payerTitle.textContent='결제자 · '+(e.target.checked?(payers[round]||'다른 사람'):'나');
+  };
+  payerInput.oninput=()=>{payers[round]=payerInput.value.trim();payerTitle.textContent='결제자 · '+(payers[round]||'다른 사람')};
+  document.getElementById('manualItems').ontoggle=e=>{if(e.target.isConnected)state.manualRound=e.target.open?round:0};
   ['camIn','galIn'].forEach(id=>document.getElementById(id).addEventListener('change',e=>{const fs=[...(e.target.files||[])];e.target.value='';if(fs.length)addPhotos(fs)}));
   shell.querySelectorAll('[data-iname]').forEach(x=>x.addEventListener('input',()=>{const it=state.draft.items.find(i=>i.id===x.dataset.iname);if(it)it.name=x.value}));
   document.getElementById('iAmt').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addItem()}});
@@ -875,7 +964,7 @@ function addItem(){
   const amt=parseInt(String(a.value).replace(/[^0-9]/g,''),10)||0;
   if(!amt){a.focus();toast('금액을 적어 주세요');return}
   const types=itemTypes(state.draft);const t=state.itemType&&types.includes(state.itemType)?state.itemType:'common';
-  state.draft.items.push({id:rid('i'),name:n.value.trim()||ITEM_TYPES[t],amount:amt,type:t});
+  state.draft.items.push({id:rid('i'),round:state.activeRound,name:n.value.trim()||ITEM_TYPES[t],amount:amt,type:t});
   state.itemType='common';
   r051();document.getElementById('iName').focus();
 }
@@ -883,7 +972,7 @@ function addItem(){
    읽는 순서: claude.ai 링크(sample) → 웹 서버(bbk-receipt, Claude) → 휴대폰 안 글자 인식(Tesseract, 대체) */
 function addPhotos(files){
   state.photos=state.photos||[];
-  files.slice(0,10).forEach(f=>state.photos.push({id:rid('ph'),file:f,url:URL.createObjectURL(f),st:'wait',n:0}));
+  files.slice(0,10).forEach(f=>state.photos.push({id:rid('ph'),round:state.activeRound,file:f,url:URL.createObjectURL(f),st:'wait',n:0}));
   r051();runPhotoQueue();
 }
 let photoBusy=false,ocrVia='';
@@ -891,16 +980,18 @@ async function runPhotoQueue(){
   if(photoBusy)return;photoBusy=true;
   try{for(;;){const ph=(state.photos||[]).find(x=>x.st==='wait');if(!ph)break;ph.st='reading';sayOcr('영수증을 읽고 있어요… 잠시만 기다려 주세요.');if(state.view==='items')r051();
       let list=[],why='';
-      try{list=await readReceipt(ph.file)}catch(e){why=e&&e.msg||''}
+      try{list=await readReceipt(ph.file,ph)}catch(e){why=e&&e.msg||''}
       if(!state.photos.includes(ph))continue;
       const types=itemTypes(state.draft);
       list=list.map(x=>({name:String(x.name||'').slice(0,40),amount:Math.abs(parseInt(x.amount,10)||0),type:['common','drink','discount'].includes(x.type)?x.type:'common'})).filter(x=>x.amount>0)
         .filter(x=>x.type!=='discount'||types.includes('discount'));
-      list.forEach(x=>state.draft.items.push({id:rid('i'),...x,src:ph.id}));
+      list.forEach(x=>state.draft.items.push({id:rid('i'),...x,round:ph.round,src:ph.id}));
+      const receipts=state.draft.receipts||(state.draft.receipts={});
+      receipts[ph.id]={round:ph.round,place:ph.place||'',date:ph.date||''};
       ph.n=list.length;ph.st=list.length?'done':'fail';
       sayOcr(list.length?`영수증에서 ${list.length}개 항목을 넣었어요 (${ocrVia}로 읽음). 이름과 금액이 맞는지 확인해 주세요.`:(why||'이 사진에서는 항목을 찾지 못했어요. 더 밝게 다시 찍거나 직접 입력해 주세요.'));
       if(state.view==='items')r051()}}
-  finally{photoBusy=false}
+  finally{photoBusy=false;if(state.view==='items')r051()}
 }
 function sayOcr(m){state.ocr=m;const n=document.getElementById('ocrNote');if(n){n.hidden=false;n.textContent=m}}
 async function shrinkImage(file,max=1600){
@@ -910,7 +1001,7 @@ async function shrinkImage(file,max=1600){
   return await new Promise(ok=>c.toBlob(ok,'image/jpeg',.85));
 }
 const blobB64=b=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(b)});
-async function readReceipt(file){
+async function readReceipt(file,ph){
   const s=Store.sample;let lim=null;try{lim=s?await s.limits():null}catch(e){}
   if(s&&lim&&lim.images){
     try{const arr=await s.json(`이 사진은 한국 식당 영수증이야. 주문 항목을 읽어서 JSON 배열만 답해 줘.
@@ -923,10 +1014,13 @@ async function readReceipt(file){
   }
   let small=file;try{small=await shrinkImage(file)}catch(e){}
   if(WEB&&Store.db.receipt){
-    try{const r=await withTimeout(Store.db.receipt(await blobB64(small),'image/jpeg'),45000);if(r&&Array.isArray(r.items)){ocrVia='Claude';return r.items}}catch(e){}
+    try{const r=await withTimeout(Store.db.receipt(await blobB64(small),'image/jpeg'),45000);if(r&&Array.isArray(r.items)){ph.place=r.place||r.merchant||'';ph.date=r.date||'';if(!ph.place||!ph.date){try{const raw=await phoneOcr(small);ph.place||=raw.match(/(?:상호명?|가맹점명)\s*[:：]\s*([^\n]+)/)?.[1]?.trim()||'';ph.date||=raw.match(/20\d{2}[./-]\d{1,2}[./-]\d{1,2}/)?.[0]||''}catch{}}ocrVia='Claude';return r.items}}catch(e){}
   }
   sayOcr('휴대폰에서 글자를 읽고 있어요… 처음 한 번은 30초쯤 걸려요.');
-  ocrVia='휴대폰 글자 인식';return parseReceiptText(await phoneOcr(small));
+  ocrVia='휴대폰 글자 인식';const raw=await phoneOcr(small);
+  ph.place=raw.match(/(?:상호명?|가맹점명)\s*[:：]\s*([^\n]+)/)?.[1]?.trim()||'';
+  ph.date=raw.match(/20\d{2}[./-]\d{1,2}[./-]\d{1,2}/)?.[0]||'';
+  return parseReceiptText(raw);
 }
 let tessWorker=null;
 async function phoneOcr(blob){
@@ -959,11 +1053,11 @@ function parseReceiptText(text){
 
 async function makeMeet(){
   const d=state.draft;
-  const m={...d,id:d.id||rid('g'),ownerKey:Store.myKey(),round:roundOf(d),paid:{},study:d.study!==false,autoNoResp:true,dueMin:60,deadline:Date.now()+60*60000,createdAt:Date.now(),updatedAt:Date.now()};
+  const m={...d,id:d.id||rid('g'),ownerKey:Store.myKey(),round:roundOf(d),paid:{},study:d.study!==false,autoNoResp:true,dueMin:60,preparing:true,deadline:null,createdAt:Date.now(),updatedAt:Date.now()};
   try{await withTimeout(Store.db.doc('meets/'+m.id).set(m))}
   catch(e){toast(e&&e.code==='invalid_argument'?'저장 권한이 없어요. 모임 주인 계정으로 열어 주세요.':'저장하지 못했어요. 잠시 후 다시 눌러 주세요.');return}
   state.draft=null;state.photos=[];state.mid=m.id;state.meet=m;state.ocr='';
-  go('link');
+  openMeet(m.id,'org');linkSheet(m);
 }
 /* ---------- 06 링크 만들기 ---------- */
 function r06(){
@@ -993,18 +1087,20 @@ function linkSheet(m){
 }
 
 /* ---------- 모임 열기(구독) ---------- */
-function openMeet(gid,want,tab){
-  unsubAll();Study.R=null;state.mid=gid;state.cks=[];state.meet=null;state.tab=tab||'est';state.open=false;
-  let gotMeet=false,gotCks=false,decided=false,timer=setTimeout(()=>{if(!gotMeet){state.view='missing';state.missingWhy='timeout';render()}},10000);
+function openMeet(gid,want,tab,restoring=false){
+  unsubAll();const generation=meetGeneration;if(!restoring)Study.R=null;state.mid=gid;state.cks=[];state.meet=null;state.tab=tab||'est';state.open=false;
+  let gotMeet=false,gotCks=false,decided=false,timer=setTimeout(()=>{if(!gotMeet&&generation===meetGeneration){state.missingWhy='timeout';go('missing')}},10000);
   const decide=()=>{
-    if(!gotMeet||!gotCks)return;
-    if(!state.meet){clearTimeout(timer);state.view='missing';state.missingWhy='none';render();return}
+    if(generation!==meetGeneration||!gotMeet||!gotCks)return;
+    if(!state.meet){clearTimeout(timer);state.missingWhy='none';go('missing');return}
     clearTimeout(timer);
+    if(state.meet.preparing && want!=='org' && (!isOwnerOf(state.meet)||want==='join')){rememberJoined(state.meet);go('waiting');return}
     if(decided){if(['org','me'].includes(state.view))r07();else if(state.view==='join'&&isClosed(state.meet)&&!document.getElementById('jName')?.value)rJoin();return}
-    decided=true;let v=want;
+    if(want==='org'&&!isOwnerOf(state.meet))want=null;
+    decided=true;if(restoring && want!=='waiting'){render();return}let v=want==='waiting'?null:want;
     if(!v)v=isOwnerOf(state.meet)&&!ssGet('bbk.pkey.demo')?'org':myCk()?'me':'join';
     if(v==='join'&&myCk())v='me';
-    if(Study.on(state.meet)&&v!=='org'){Study.load(state.meet).then(R=>{go(R?v:'consent')});return}
+    if(Study.on(state.meet)&&v!=='org'){Study.load(state.meet).then(R=>{if(generation===meetGeneration)go(R?v:'consent')});return}
     go(v);
   };
   state.subs.push(Store.db.doc('meets/'+gid).onSnapshot(s=>{state.meet=s.exists?s.data():null;gotMeet=true;decide()},()=>{gotMeet=true;decide()}));
@@ -1049,7 +1145,7 @@ function rJoin(){
 }
 function questions(m){
   const q=[];
-  if(ruleOn(m,'r1')||ruleOn(m,'r4')||ruleOn(m,'r5'))q.push({k:'rounds',bread:0,t:'몇 차에 참석하고 계신가요?',multi:true,opts:[[1,'1차'],[2,'2차'],[3,'3차']],hint:`이 정산은 ${roundOf(m)}차 비용이에요. 참석한 차수를 모두 골라 주세요.`});
+  if(ruleOn(m,'r1')||ruleOn(m,'r4')||ruleOn(m,'r5'))q.push({k:'rounds',bread:0,t:'몇 차에 참석하고 계신가요?',multi:true,opts:m.roundCount?roundsOf(m).map(n=>[n,n+'차']):[[1,'1차'],[2,'2차'],[3,'3차']],hint:'참석한 차수를 모두 골라 주세요.'});
   if(ruleOn(m,'r3')&&!ruleOn(m,'r2')&&!ruleOn(m,'r6'))q.push({k:'drink',bread:2,t:'술을 마시는 분이신가요?',opts:[[true,'네, 마셔요'],[false,'아니요']]});
   if(ruleOn(m,'r8'))q.push({k:'bday',bread:7,t:'오늘 생일이신가요?',opts:[[true,'네, 생일이에요'],[false,'아니요']]});
   const menu=(m.items||[]).filter(i=>i.type!=='discount');
@@ -1094,30 +1190,38 @@ async function saveCheckin(base){
   const pkey=Store.pKey();const old=myCk()||{};const late=!base&&isClosed(m);
   const ans={rounds:a.rounds||[],drink:a.drink!==undefined?a.drink:true,bday:!!a.bday,personal:a.personal||[]};
   /* 마감 뒤 답변: 기록만 하고 금액은 '예외 없음'(또는 마감 전 답) 그대로 */
-  const keep=late?{rounds:old.rounds||[roundOf(m)],drink:old.drink!==undefined?old.drink:true,bday:!!old.bday,personal:old.personal||[]}:ans;
+  const keep=late?{rounds:old.rounds||(m.roundCount?roundsOf(m):[roundOf(m)]),drink:old.drink!==undefined?old.drink:true,bday:!!old.bday,personal:old.personal||[]}:ans;
   const doc={...old,meetId:m.id,pkey,name:(state.joinName||old.name||'').trim(),...keep,situ:a.situ||old.situ||[],...(late?{afterDue:true,lateAns:{...ans,situ:a.situ||[],at:Date.now()}}:{}),at:old.at||Date.now(),updatedAt:Date.now()};
   try{await withTimeout(Store.db.doc('checkins/'+m.id+'_'+pkey).set(doc))}
   catch(e){
     if(e&&e.code==='invalid_argument'){Store.canWrite=false;sheet(`<h3>체크인을 저장하지 못했어요</h3><div class="cap">이 페이지에 쓸 권한이 아직 없어요. ${esc(m.payer||'총무')}님께 claude.ai 공유 메뉴에서 이메일로 <b>편집자</b> 초대를 해 달라고 요청해 주세요.</div><button class="btn" data-close>알겠어요</button>`)}
     else toast('저장하지 못했어요. 잠시 후 다시 눌러 주세요.');
     return}
-  Study.log('checkin_saved',{exc:base?0:1,late:late?1:0,drink:ans.drink?1:0,rounds:ans.rounds.join('|'),bday:ans.bday?1:0,np:ans.personal.length,situ:(a.situ||[]).join('|')});
+  rememberJoined(m);Study.log('checkin_saved',{exc:base?0:1,late:late?1:0,drink:ans.drink?1:0,rounds:ans.rounds.join('|'),bday:ans.bday?1:0,np:ans.personal.length,situ:(a.situ||[]).join('|')});
   if(!base&&Study.R){Study.R.excDone=true;Study.save()}
   toast(base?'체크인했어요! 내 금액을 확인해 주세요':late?'기록했어요. 마감 뒤 답변이라 금액에는 반영되지 않아요':'저장했어요!');state.tab='est';state.open=false;go('me');
 }
 
 /* ---------- 07 내 정산 확인 (참여자 · 총무 공통) ---------- */
+async function updateMeeting(changes){
+  if(!isOwnerOf(state.meet))return;
+  const m={...state.meet,...changes,updatedAt:Date.now()};
+  try{await Store.db.doc('meets/'+m.id).set(m);state.editRules=false;state.draft=null;openMeet(m.id,'org')}
+  catch(e){toast('저장하지 못했어요. 다시 시도해 주세요.')}
+}
 function r07(){
   const m=state.meet;if(!m){rMissing();return}
   const c=compute(m,state.cks);const org=state.view==='org';const me=myCk();const meP=me&&c.ppl.find(p=>p.id===me.pkey);
   const exp=+m.expected||0;
   const head=`<div class="toprow">${org?'<button class="back" data-nav="home">‹ 홈으로</button>':'<span class="label" style="color:var(--sub)">함께하는 정산</span>'}</div>
-    <div class="mhead"><h1 class="title">${esc(m.payer||'총무')}님의 모임</h1>
+    <div class="mhead"><h1 class="title">${esc(m.title||'내 모임')}</h1>
       <span class="label" style="color:var(--sub)">${exp?`체크인 인원 ${exp}명중 ${c.checked}명 참여수락`:`체크인 ${c.checked}명 참여수락`}</span>
       ${dueText(m)?`<span class="label due" id="due">${dueText(m)}</span>`:''}</div>
     ${org&&c.pending?`<div class="cap note">${isClosed(m)?`답하지 않은 ${c.pending}명은 ‘예외 없음’으로 계산해 금액을 확정했어요.`:`아직 답하지 않은 ${c.pending}명은 ‘예외 없음’으로 계산 중이에요. 마감 전에 답하면 바뀌어요.`}</div>`:''}
-    ${org?`<div class="row2"><button class="btn line small2" data-act="share">${IC.link} 참여 링크 공유</button><button class="btn line small2" data-act="remind">미입금 알림 복사</button></div>`:''}
+    ${m.previousRules?`<div class="cap note">이전 기준: ${esc(m.previousRules)}<br>현재 기준: ${esc(rulesOf(m).map(r=>r.name).join(' · '))}</div>`:''}
+    ${org?`<button class="btn line" data-act="editrules">정산 기준 수정</button><button class="btn" data-act="receipts">${m.preparing?'영수증 등록 · 정산 요청':'영수증 추가 · 수정'}</button><div class="row2"><button class="btn line small2" data-act="share">${IC.link} 참여 링크 공유</button><button class="btn line small2" data-act="remind">미입금 알림 복사</button></div>`:''}
     <div class="tabs r18" role="tablist"><button role="tab" aria-selected="${state.tab==='est'}" data-tab="est">예상 금액</button><button role="tab" aria-selected="${state.tab==='pay'}" data-tab="pay">송금현황</button></div>`;
+  if(m.preparing){shell.innerHTML='<section class="view">'+head+'<p class="lead">영수증 등록 전이에요. 정산 요청 후 1시간 동안 답할 수 있어요.</p></section>';return}
   let body='';
   if(state.tab==='est'){
     const mine=!org&&meP;const amt=mine?c.rows[meP.id].amount:c.nb;
@@ -1168,7 +1272,7 @@ function receiptHTML(m){
   const line=(l,r,cls='',sub='')=>`<div class="rl ${cls}"><span class="rl-l"><span class="rl-n">${l}</span>${sub?`<small>${sub}</small>`:''}</span><span class="rl-d" aria-hidden="true"></span><span class="rl-r num">${r}</span></div>`;
   return `<article class="rcpt" aria-label="정산 영수증">
     <header class="rc-h"><span class="rc-logo">${BREAD[0]||''}</span><b>빵끗 정산 영수증</b><span class="cap">${esc(titleOf(m))}</span>
-      <span class="cap">${esc((m.date||'').replace(/-/g,'.'))} · 결제 ${esc(m.payer||'총무')}</span></header>
+      <span class="cap">${esc((m.date||'').replace(/-/g,'.'))} · 결제 ${Object.keys(m.roundPayers||{}).length?roundsOf(m).map(n=>n+'차 '+esc(m.roundPayers[n]||m.payer||'총무')).join(' · '):esc(m.payer||'총무')}</span></header>
     <div class="rc-cut"></div>
     ${G.map(([t,label])=>`<section class="rc-sec"><div class="rc-sh"><span>${label}</span><span class="num">${t==='discount'?'−':''}${won(sum(t))}원</span></div>
       ${items.filter(i=>(i.type||'common')===t).map(i=>{const my=r6&&mine.includes(i.id);const n=r6&&t!=='discount'?pick(i.id):0;
@@ -1212,9 +1316,11 @@ function personSheet(pid){
 
 /* ---------- 00 홈 · 내 모임 · 공유·알림 ---------- */
 let homeSub=null;
+function joinedMeets(){try{return JSON.parse(localStorage.getItem('bbk.joined')||'[]')}catch(e){return []}}
+function rememberJoined(m){if(!isOwnerOf(m))try{localStorage.setItem('bbk.joined',JSON.stringify([{id:m.id,title:m.title},...joinedMeets().filter(x=>x.id!==m.id)]))}catch(e){}}
 function watchMyMeets(){
   if(homeSub)return;
-  homeSub=Store.db.collection('meets').where('ownerKey','==',Store.myKey()).onSnapshot(q=>{state.myMeets=q.docs.map(d=>d.data()).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));if(['home','mine','msglist'].includes(state.view))render()},()=>{});
+  homeSub=Store.db.collection('meets').where('ownerKey','==',Store.myKey()).onSnapshot(q=>{state.myMeets=q.docs.map(d=>d.data()).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));if(['home','mine','results','msglist'].includes(state.view))render()},()=>{});
 }
 function gcard(m){
   return `<button class="gcard" data-open="${m.id}"><div class="t">${esc(titleOf(m))}</div>
@@ -1238,8 +1344,21 @@ function r00(){
       <button class="qbtn new" data-act="new"><i>${SVG.plus}</i>새 모임</button>
       <button class="qbtn" data-act="quick" data-tab2="est"><i>${SVG.doc}</i>정산 결과</button>
       <button class="qbtn pay" data-act="quick" data-tab2="pay"><i>${SVG.swap}</i>송금 체크</button></div>
-    <div class="sechead"><span class="label">최근 모임</span><button data-nav="mine">모두 보기</button></div>
+    <div class="sechead"><span class="label">내가 만든 모임</span><button data-nav="mine">모두 보기</button></div>
     ${list.length?`<div class="glist">${list.slice(0,3).map(gcard).join('')}</div>`:`<div class="homeempty"><b style="font-size:14px">아직 만든 모임이 없어요</b><span class="cap">새 모임을 만들면 여기에 쌓여요.</span></div>`}
+    <div class="sechead"><span class="label">내가 참여한 모임</span></div>${joinedMeets().map(m=>`<button class="gcard" data-joined="${esc(m.id)}">${esc(m.title)}</button>`).join('')||'<div class="homeempty">이 브라우저에서 참여한 모임이 없어요.</div>'}
+  </section>${nav()}`;
+}
+function rResults(){
+  watchMyMeets();unsubAll();
+  const owned=state.myMeets;
+  const joined=joinedMeets().filter(m=>!owned.some(o=>o.id===m.id));
+  shell.innerHTML=`<section class="view"><header class="hhead"><h1 class="title">정산 결과</h1></header>
+    <p class="subt">결과를 확인할 모임을 골라주세요.</p>
+    <div class="sechead"><span class="label">내가 만든 모임</span></div>
+    <div class="glist">${owned.map(gcard).join('')||'<div class="homeempty">아직 만든 모임이 없어요.</div>'}</div>
+    <div class="sechead"><span class="label">내가 참여한 모임</span></div>
+    <div class="glist">${joined.map(m=>`<button class="gcard" data-joined="${esc(m.id)}"><div class="t">${esc(m.title)}</div></button>`).join('')||'<div class="homeempty">아직 참여한 모임이 없어요.</div>'}</div>
   </section>${nav()}`;
 }
 function rMine(){
@@ -1306,15 +1425,17 @@ function rConsent(){
   shell.innerHTML=`<section class="view">
     ${joinHead()}
     <section class="card consent"><b class="h15">베타 테스트에 함께해 주실래요?</b>
-      <div class="cap">‘빵끗’은 국민대학교 ADM Lab 서비스디자인 수업에서 만든 정산 서비스예요. 더 납득되는 정산 방법을 찾는 연구를 위해, 사용 기록과 짧은 설문(약 3분)을 모으고 있어요.</div>
+      <div class="cap">‘빵끗’은 국민대학교 ADM Lab 서비스디자인 수업에서 만든 정산 서비스예요. 더 납득되는 정산 방법을 찾는 연구를 위해, 사용 기록과 짧은 설문(약 3분)을 모으고 있어요.<br><b>이름·연락처·계좌번호는 저장하지 않아요.</b></div>
+      <details class="rdet"><summary>어떤 내용인지 자세히 보기</summary>
       <ul class="why">
         <li><b>모으는 것</b> · 화면을 넘긴 순서와 시간, 정산 답변(술 여부·참석 차수 등), 설문 응답</li>
         <li><b>연구 자료에 넣지 않는 것</b> · 이름, 연락처, 계좌</li>
-        <li>참여자마다 화면 순서가 조금 다를 수 있어요 (무작위 배정)</li>
+        <li>참여자마다 화면 순서가 조금 다를 수 있어요 (무작위 배정). 어느 쪽이든 정산 금액은 똑같아요</li>
         <li>참여하지 않아도 정산은 똑같이 할 수 있고, 중간에 그만둬도 불이익이 없어요</li>
         <li>자료는 수업 과제와 학술 논문에만 쓰고, 통계로만 발표해요</li>
       </ul>
-      <div class="cap">연구자 · 김연희 (국민대학교 ADM Lab 박사과정)</div>
+      <div class="cap">연구자 · 김연희 (국민대학교 ADM Lab 박사과정)<br>문의 · 현장에서 김연희에게 말씀해 주세요</div>
+      </details>
       <label class="agree"><input type="checkbox" id="cAgree"><span>위 내용을 읽었고, 만 19세 이상이며 연구 참여에 동의해요</span></label>
     </section>
     <div class="grow"></div>
@@ -1342,6 +1463,11 @@ const SV=[
   {k:'U1',t:'다음 모임에서도 이 방식으로 정산하고 싶다.'},
   {k:'SEQ',t:'전체적으로, 오늘 정산 과정은 얼마나 쉬웠나요?',scale:7,lo:'매우 어려움',hi:'매우 쉬움'},
   {k:'MC',t:'오늘 화면에서 무엇을 먼저 하셨나요?',opts:['내 상황 질문에 먼저 답했어요','내 금액을 먼저 봤어요','잘 기억나지 않아요']},
+  {sec:'마감과 시점에 대해'},
+  {k:'T1',t:'정산 링크를 처음 열었을 때, 답변 마감까지 시간이 얼마나 남아 있었나요?',opts:['거의 다 남아 있었어요 (50분 이상)','절반쯤 남아 있었어요 (20~50분)','얼마 안 남았었어요 (20분 미만)','이미 지나 있었어요','잘 모르겠어요']},
+  {k:'T2',t:'답변 마감 1시간은 어땠나요?',opts:['너무 짧았어요','조금 짧았어요','적당했어요','조금 길었어요','너무 길었어요']},
+  {k:'T3',t:'처음 본 금액을 어떻게 생각하셨나요?',opts:['바로 보내도 되는 확정 금액이라고 생각했어요','나중에 바뀔 수 있는 예상 금액이라고 생각했어요','잘 모르겠어요']},
+  {k:'T4',t:'술을 안 마셨는데, 마감이 지난 뒤에야 확인해서 술값이 포함돼 있다면 어떻게 하실 것 같나요?',opts:['그대로 낸다','총무에게 따로 연락한다','앱에서 수정할 방법을 찾는다','일단 송금을 미룬다']},
   {sec:'나에 대해 (통계용)'},
   {k:'age',t:'연령대',opts:['20대','30대','40대','50대 이상']},
   {k:'gender',t:'성별',opts:['여성','남성','응답하지 않음']},
@@ -1422,22 +1548,27 @@ function researchRows(rs,cks,m){
 
 /* ================= 이벤트 ================= */
 shell.addEventListener('change',e=>{if(e.target.id==='f-study'&&state.draft)state.draft.study=e.target.checked});
-shell.addEventListener('input',e=>{const t=e.target;if(state.view==='form'&&t.dataset.f){state.draft[t.dataset.f]=t.dataset.f==='expected'?(parseInt(t.value.replace(/[^0-9]/g,''),10)||0):t.value}});
+shell.addEventListener('input',e=>{const t=e.target;if(t.dataset.receipt)state.draft.receipts[t.dataset.receipt][t.dataset.field]=t.value;if(['form','items'].includes(state.view)&&t.dataset.f){state.draft[t.dataset.f]=t.dataset.f==='expected'?(parseInt(t.value.replace(/[^0-9]/g,''),10)||0):t.value}});
 shell.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||b.disabled)return;const d=b.dataset;
-  if(d.nav){if(['home','mine','msglist'].includes(d.nav)&&!state.profile){go('onb1');return}go(d.nav);return}
-  if(d.open){openMeet(d.open,'org',d.tab2);return}
+  if(position>=0&&state.view===visits[position].view)visits[position]=captureVisit(state.view);
+  if(d.nav==='home'){returnHome();return}
+  if(d.nav){if(['home','mine','msglist'].includes(d.nav)&&!state.profile&&!joinedMeets().length){go('onb1');return}go(d.nav);return}
+  if(d.joined){openMeet(d.joined);return}
+  if(d.round){state.activeRound=+d.round;r051();return}
+  if(d.open){sessionStorage.removeItem('bbk.pkey.demo');openMeet(d.open,'org',d.tab2);return}
   if(d.invite){const m=state.myMeets.find(x=>x.id===d.invite);if(m)copy(msgInvite(m),'정산 메시지를 복사했어요');return}
-  if(d.tab){state.tab=d.tab;r07();return}
+  if(d.tab){state.tab=d.tab;go(state.view);return}
   if(d.person){personSheet(d.person);return}
   if(d.rule){const sel=state.ruleSel,id=d.rule,r=RULES.find(x=>x.id===id),i=sel.indexOf(id);
+    if(i>=0&&['all','r1'].includes(id))return;
     if(i>=0){sel.splice(i,1);toast(`‘${r.name}’ 선택을 뺐어요`)}
-    else{sel.push(id);const CL={r2:['r3','r6'],r3:['r2','r6'],r6:['r2','r3']};const gone=(CL[id]||[]).filter(x=>sel.includes(x));
+    else{sel.push(id);const CL={all:['r1'],r1:['all'],r2:['r3','r6'],r3:['r2','r6'],r6:['r2','r3']};const gone=(CL[id]||[]).filter(x=>sel.includes(x));
       gone.forEach(x=>{sel.splice(sel.indexOf(x),1);const el=document.querySelector(`[data-rule="${x}"]`);if(el)el.setAttribute('aria-pressed','false')});
       toast(gone.length?`${r.tip} (‘${gone.map(x=>RULES.find(y=>y.id===x).name).join('’, ‘')}’와 함께 고를 수 없어서 뺐어요)`:r.tip)}
     b.setAttribute('aria-pressed',String(sel.includes(id)));document.getElementById('ruleCount').textContent=sel.length;return}
   if(d.itype){state.itemType=d.itype;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));return}
-  if(d.pdel){const ph=(state.photos||[]).find(x=>x.id===d.pdel);state.photos=state.photos.filter(x=>x.id!==d.pdel);state.draft.items=state.draft.items.filter(i=>i.src!==d.pdel);if(ph)try{URL.revokeObjectURL(ph.url)}catch(e){}r051();return}
+  if(d.pdel){if(state.draft.receipts)delete state.draft.receipts[d.pdel];const ph=(state.photos||[]).find(x=>x.id===d.pdel);state.photos=state.photos.filter(x=>x.id!==d.pdel);state.draft.items=state.draft.items.filter(i=>i.src!==d.pdel);if(ph)try{URL.revokeObjectURL(ph.url)}catch(e){}r051();return}
   if(d.idel){state.draft.items=state.draft.items.filter(i=>i.id!==d.idel);r051();return}
   if(d.sv){const q=SV.find(x=>x.k===d.sv);const v=q.opts?d.v:+d.v;(state.sv||(state.sv={}))[d.sv]=v;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));b.closest('.qcard').classList.remove('miss');svProgress();return}
   if(d.due){state.draft.dueMin=+d.due;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-checked',String(x===b)));return}
@@ -1449,14 +1580,21 @@ shell.addEventListener('click',e=>{
     if(d.q==='personal'){const y=window.scrollY;rJoin2();window.scrollTo(0,y);return}
     const er=document.getElementById('qErr');if(er)er.hidden=true;return}
   switch(d.act){
+    case 'back':back();break;
+    case 'editrules':state.editRules=true;state.ruleSel=(state.meet.rules||[]).filter(id=>!['r4','r5'].includes(id));if(!state.ruleSel.includes('r1')&&!state.ruleSel.includes('all'))state.ruleSel.push('all');go('rules');break;
+    case 'saverules':updateMeeting({rules:[...state.ruleSel],previousRules:rulesOf(state.meet).map(r=>r.name).join(' · ')});break;
+    case 'receipts':state.manualRound=0;state.draft=JSON.parse(JSON.stringify(state.meet));state.draft.roundCount=state.draft.roundCount||1;state.activeRound=1;state.photos=[];state.ocr='';go('items');break;
+    case 'addround':state.activeRound=++state.draft.roundCount;r051();break;
+    case 'requestsettle':{const {roundCount,items,payer,expected,receipts={},roundPayers={}}=state.draft;const missing=Object.keys(roundPayers).find(n=>!roundPayers[n]);if(missing){state.activeRound=+missing;r051();document.getElementById('roundPayer').focus();toast(missing+'차 결제자 이름을 입력해 주세요');break}b.disabled=true;updateMeeting({roundCount,items,payer,roundPayers,expected,receipts,place:Object.values(receipts)[0]?.place||'',date:Object.values(receipts)[0]?.date||today(),preparing:false,deadline:state.meet.preparing?Date.now()+3600000:state.meet.deadline}).finally(()=>b.disabled=false);break}
+
     case 'to02':go('onb2');break;
     case 'to03':go('onb3');break;
-    case 'new':state.ruleSel=null;go('create');break;
+    case 'new':if(!myName()){go('onb3');break}state.editRules=false;state.draft=null;state.ruleSel=null;go('create');break;
     case 'torules':state.ruleSel=null;go('rules');break;
     case 'rulecheck':go('rulecheck');break;
     case 'toform':state.draft=state.draft||{title:'',place:'',date:today(),payer:myName(),account:'',expected:0,items:[]};state.draft.rules=[...state.ruleSel];go('form');setTimeout(()=>document.getElementById('f-title')?.focus(),60);break;
     case 'toitems':{const dr=state.draft,er=document.getElementById('formErr');const f=m=>{er.hidden=false;er.textContent=m};
-      if(!dr.title.trim())return f('모임 이름을 적어 주세요.');if(!dr.payer.trim())return f('결제한 사람을 적어 주세요.');go('items');break}
+      if(!dr.title.trim())return f('모임 이름을 적어 주세요.');b.disabled=true;makeMeet().finally(()=>b.disabled=false);break}
     case 'additem':addItem();break;
     case 'makemeet':makeMeet();break;
     case 'makelink':linkSheet(state.meet);break;
@@ -1464,12 +1602,12 @@ shell.addEventListener('click',e=>{
     case 'remind':copy(msgRemind(state.meet,compute(state.meet,state.cks)),'미입금 알림을 복사했어요');break;
     case 'editans':{const me=myCk();if(!me)break;Study.log('edit_open');state.joinName=me.name;state.ans={rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[],situ:me.situ||[]};go('join2');break}
     case 'toggleEst':state.open=!state.open;if(state.open)Study.log('est_open');r07();break;
-    case 'ack':if(state.view==='org'){state.tab='pay';r07();break}
+    case 'ack':if(state.view==='org'){state.tab='pay';go(state.view);break}
       if(!myCk()){go('join');break}
       {const c=compute(state.meet,state.cks),me=myCk();const amt=c.rows[me.pkey]?c.rows[me.pkey].amount:0;const owes=amt>0&&me.pkey!==c.payerId;
         if(Study.active(state.meet)){if(Study.R.amountAtAck==null)Study.R.amountAtAck=amt;if(!Study.R.ev.some(x=>x.e==='ack'))Study.log('ack',amt)}
         if(!owes&&Study.active(state.meet)&&!Study.R.survey){go('survey');break}
-        state.tab='pay';r07();window.scrollTo(0,0)}break;
+        state.tab='pay';go(state.view)}break;
     case 'copyacct':copy(state.meet.account,'계좌를 복사했어요');break;
     case 'copyacctnum':copy(acctNum(state.meet.account),'계좌번호를 복사했어요');break;
     case 'copyamt':{const c=compute(state.meet,state.cks),me=c.ppl.find(x=>x.id===Store.pKey());if(me)copy(String(c.rows[me.id].amount),'금액을 복사했어요');break}
@@ -1477,13 +1615,13 @@ shell.addEventListener('click',e=>{
       copy(`[${m.title||'모임'} 정산]\n받는 분: ${m.payer||'총무'}\n계좌: ${m.account}${amt?`\n보낼 금액: ${won(amt)}원`:`\n1인 예상: ${won(c.nb)}원`}`,'송금 정보를 복사했어요');break}
     case 'togglesent':{const m=state.meet,c=compute(m,state.cks),me=c.ppl.find(x=>x.id===Store.pKey());if(!me)break;
       Study.log('sent',me.sent?0:1);Store.db.doc('checkins/'+m.id+'_'+me.id).update({sent:!me.sent,updatedAt:Date.now()}).then(()=>{toast(me.sent?'취소했어요':'송금했다고 총무님께 알렸어요!');
-        if(!me.sent&&Study.active(m)&&!Study.R.survey)setTimeout(()=>go('survey'),700)}).catch(()=>toast('저장하지 못했어요'));break}
+        if(!me.sent&&Study.active(m)&&!Study.R.survey)setTimeout(()=>{if(state.view==='me'&&state.mid===m.id)go('survey')},700)}).catch(()=>toast('저장하지 못했어요'));break}
     case 'tosurvey':go('survey');break;
     case 'join1':{const n=(state.joinName||document.getElementById('jName').value||'').trim();if(!n){document.getElementById('jErr').hidden=false;document.getElementById('jName').focus();break}
       state.joinName=n;const me=myCk();state.ans=state.ans||(me?{rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[]}:{rounds:[roundOf(state.meet)],personal:[]});
       const m=state.meet;
-      if(!questions(m).length){state.ans={rounds:[roundOf(m)],personal:[]};saveCheckin(true);break}
-      if(Study.arm(m)==='B'&&!(Study.R&&Study.R.excDone)){if(!me)state.ans={rounds:[roundOf(m)],personal:[]};saveCheckin(true);break}
+      if(!questions(m).length){state.ans={rounds:(m.roundCount?roundsOf(m):[roundOf(m)]),personal:[]};saveCheckin(true);break}
+      if(Study.arm(m)==='B'&&!(Study.R&&Study.R.excDone)){if(!me)state.ans={rounds:(m.roundCount?roundsOf(m):[roundOf(m)]),personal:[]};saveCheckin(true);break}
       go('join2');break}
     case 'join2':saveCheckin();break;
     case 'bexc':{const me=myCk();state.joinName=me.name;state.ans={rounds:me.rounds||[],drink:me.drink,bday:me.bday,personal:me.personal||[],situ:me.situ||[]};Study.log('bexc_open');go('join2');break}
@@ -1496,9 +1634,9 @@ shell.addEventListener('click',e=>{
     case 'tojoin':go('join');break;
     case 'demoagain':ssSet('bbk.pkey.demo',rid('p'));state.joinName='';state.ans=null;go('join');break;
     case 'asowner':try{sessionStorage.removeItem('bbk.pkey.demo')}catch(e){}go('org');break;
-    case 'quick':{const m=state.myMeets[0];if(!m){toast('먼저 새 모임을 만들어 주세요');go('create');break}openMeet(m.id,'org',d.tab2);break}
+    case 'quick':{if(d.tab2==='est'){go('results');break}const m=state.myMeets[0];if(!m){toast('먼저 새 모임을 만들어 주세요');go('create');break}openMeet(m.id,'org',d.tab2);break}
     case 'me':meSheet();break;
-    case 'tohome':try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}state.mid=null;go(state.profile?'home':'onb1');break;
+    case 'tohome':returnHome();break;
   }
 });
 window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(h.startsWith('m-')&&h.slice(2)!==state.mid){state.ans=null;openMeet(h.slice(2))}});
@@ -1515,8 +1653,8 @@ window.__bbk={Store,state,researchRows,Study,compute};
   const h=location.hash.slice(1);
   if(h.startsWith('m-')&&h.length>3){state.ans=null;shell.innerHTML='<div class="loading">모임을 불러오는 중…</div>';openMeet(h.slice(2));return}
   /* 이미 가입한 사람(두 번째 방문부터)은 온보딩을 건너뛰고 홈으로 */
-  if(state.profile&&state.profile.nickname){go('home');return}
-  state.view='onb1';render();
+  if(state.profile&&state.profile.nickname||joinedMeets().length){go('home');return}
+  go('onb1');
 })();
 
 })();
